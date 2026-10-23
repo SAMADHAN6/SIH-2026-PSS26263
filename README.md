@@ -8,6 +8,16 @@
 
 ---
 
+## 🌐 Live Production Deployments
+
+| Component | Cloud Platform | Live Production URL | Health Check / Status |
+| :--- | :--- | :--- | :---: |
+| **Frontend Portal** | Render Static Cloud | **[https://aict-apaar-verify.onrender.com](https://aict-apaar-verify.onrender.com)** | 🟢 `Active (200 OK)` |
+| **Backend REST API** | Render Docker Cloud | **[https://apaar-backend.onrender.com](https://apaar-backend.onrender.com)** | 🟢 `Active (200 OK)` |
+| **API Health Endpoint** | Spring Boot 3 | `https://apaar-backend.onrender.com/api/college/stats` | 🟢 `Live JSON Feed` |
+
+---
+
 ## 🏛️ System Overview
 
 **APAAR Verify** is the national-scale academic data verification and intake auditing platform mandated by the **National Education Policy (NEP 2020)**. It establishes the 12-digit **APAAR ID (Automated Permanent Academic Account Registry)** as the single verifiable truth for technical higher education.
