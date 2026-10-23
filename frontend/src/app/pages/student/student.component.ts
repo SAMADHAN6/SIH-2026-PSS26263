@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApaarService, Student } from '../../services/apaar.service';
-import confetti from 'canvas-confetti';
 
 @Component({
   selector: 'app-student',
@@ -301,13 +300,6 @@ export class StudentComponent implements OnInit {
         if (res.success && res.data) {
           this.student = res.data;
           this.cdr.detectChanges();
-          if (this.student?.status === 'verified') {
-            try {
-              confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
-            } catch (e) {
-              console.log('Confetti effect triggered');
-            }
-          }
         }
         this.cdr.detectChanges();
       },
