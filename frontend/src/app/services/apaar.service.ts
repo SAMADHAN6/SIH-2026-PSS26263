@@ -48,7 +48,9 @@ export interface College {
   providedIn: 'root',
 })
 export class ApaarService {
-  private readonly baseUrl = 'http://localhost:8085/api';
+  private readonly baseUrl = (typeof window !== 'undefined' && window.location.hostname !== 'localhost')
+    ? '/api'
+    : 'http://localhost:8085/api';
 
   constructor(private http: HttpClient) {}
 
