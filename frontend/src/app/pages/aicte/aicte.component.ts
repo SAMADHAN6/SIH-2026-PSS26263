@@ -56,19 +56,63 @@ import { ApaarService, College } from '../../services/apaar.service';
         </div>
       </div>
 
-      <!-- State-Wise Progress Bars -->
+      <!-- State-Wise Standing Vertical Bar Chart -->
       <div class="state-card gov-card">
-        <h3>Pan-India State-Wise APAAR Verification Progress</h3>
-        <p class="sub-text">Comparative student verification statistics across major technical education states</p>
+        <div class="chart-header">
+          <div>
+            <h3>Pan-India State-Wise APAAR Verification Progress</h3>
+            <p class="sub-text">Comparative student verification statistics across major technical education states</p>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-badge total-badge"></span> Total Sanctioned Enrolments</span>
+            <span class="legend-item"><span class="legend-badge verified-badge"></span> Verified APAAR Records</span>
+          </div>
+        </div>
 
-        <div class="state-list">
-          <div *ngFor="let s of stateData" class="state-row">
-            <div class="state-meta">
-              <strong>{{ s.state }}</strong>
-              <span>{{ s.verified | number }} / {{ s.total | number }} ({{ (s.verified / s.total * 100).toFixed(1) }}%)</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" [style.width.%]="(s.verified / s.total * 100)"></div>
+        <div class="bar-chart-wrapper">
+          <!-- Y-Axis Scale -->
+          <div class="y-axis">
+            <span>600k</span>
+            <span>450k</span>
+            <span>300k</span>
+            <span>150k</span>
+            <span>0</span>
+          </div>
+
+          <!-- Chart Plot Area with Grid and Standing Bars -->
+          <div class="chart-plot">
+            <div class="grid-line" style="bottom: 100%;"></div>
+            <div class="grid-line" style="bottom: 75%;"></div>
+            <div class="grid-line" style="bottom: 50%;"></div>
+            <div class="grid-line" style="bottom: 25%;"></div>
+            <div class="grid-line baseline" style="bottom: 0%;"></div>
+
+            <!-- Columns for each state -->
+            <div class="columns-container">
+              <div *ngFor="let s of stateData" class="state-column-group">
+                <!-- Top Percentage Pill -->
+                <div class="pct-pill">{{ (s.verified / s.total * 100).toFixed(1) }}%</div>
+
+                <!-- Dual Standing Bars -->
+                <div class="dual-bars">
+                  <!-- Bar 1: Total Enrolments -->
+                  <div class="standing-bar total-bar" 
+                       [style.height.%]="(s.total / maxStateVal * 100)"
+                       [title]="s.state + ' Total Enrolment: ' + (s.total | number)">
+                    <span class="bar-tooltip">{{ (s.total / 1000).toFixed(0) }}k</span>
+                  </div>
+
+                  <!-- Bar 2: Verified Records -->
+                  <div class="standing-bar verified-bar" 
+                       [style.height.%]="(s.verified / maxStateVal * 100)"
+                       [title]="s.state + ' Verified: ' + (s.verified | number) + ' (' + (s.verified / s.total * 100).toFixed(1) + '%)'">
+                    <span class="bar-tooltip">{{ (s.verified / 1000).toFixed(0) }}k</span>
+                  </div>
+                </div>
+
+                <!-- X-Axis State Label -->
+                <div class="x-axis-label">{{ s.state }}</div>
+              </div>
             </div>
           </div>
         </div>
@@ -198,13 +242,35 @@ import { ApaarService, College } from '../../services/apaar.service';
     .text-red { color: #dc2626; }
     .text-purple { color: #7c3aed; }
     .text-navy { color: #0F2C61; }
-    .state-card { padding: 20px; margin-bottom: 20px; }
-    .state-card h3 { font-size: 15px; color: #0F2C61; margin: 0 0 4px; font-weight: 800; }
-    .sub-text { font-size: 11px; color: #64748b; margin: 0 0 15px; }
-    .state-list { display: flex; flex-direction: column; gap: 12px; }
-    .state-meta { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-    .progress-bar { height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
-    .progress-fill { height: 100%; background: #0F2C61; border-radius: 4px; }
+    .state-card { padding: 22px; margin-bottom: 20px; }
+    .chart-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .chart-header h3 { font-size: 16px; color: #0F2C61; margin: 0 0 4px; font-weight: 800; }
+    .sub-text { font-size: 11px; color: #64748b; margin: 0; }
+    .chart-legend { display: flex; gap: 16px; font-size: 11px; font-weight: 700; color: #475569; align-items: center; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-badge { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    .total-badge { background: #0F2C61; }
+    .verified-badge { background: #10B981; }
+    .bar-chart-wrapper { display: flex; gap: 12px; margin-top: 15px; padding-right: 15px; }
+    .y-axis { display: flex; flex-direction: column; justify-content: space-between; font-size: 10px; font-weight: 700; color: #94a3b8; text-align: right; height: 200px; padding-bottom: 25px; min-width: 35px; }
+    .chart-plot { flex: 1; position: relative; height: 200px; margin-bottom: 25px; border-bottom: 2px solid #cbd5e1; }
+    .grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #e2e8f0; }
+    .grid-line.baseline { border-top: 1px solid #cbd5e1; }
+    .columns-container { display: flex; justify-content: space-around; align-items: flex-end; height: 100%; position: relative; z-index: 2; padding: 0 5px; }
+    .state-column-group { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 18%; position: relative; }
+    .pct-pill { font-size: 10px; font-weight: 800; background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; padding: 1px 6px; border-radius: 10px; margin-bottom: 6px; }
+    .dual-bars { display: flex; gap: 6px; align-items: flex-end; height: 150px; width: 100%; justify-content: center; }
+    .standing-bar { width: 22px; border-radius: 4px 4px 0 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; display: flex; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
+    .standing-bar:hover { filter: brightness(1.15); transform: translateY(-4px); box-shadow: 0 6px 12px rgba(0,0,0,0.12); }
+    .total-bar { background: linear-gradient(180deg, #1e3a8a, #0F2C61); }
+    .verified-bar { background: linear-gradient(180deg, #34d399, #059669); }
+    .bar-tooltip { position: absolute; top: -16px; font-size: 9px; font-weight: 800; color: #475569; }
+    .x-axis-label { position: absolute; bottom: -24px; font-size: 11px; font-weight: 800; color: #0F2C61; text-align: center; white-space: nowrap; }
+    @media (max-width: 768px) {
+      .standing-bar { width: 14px; }
+      .dual-bars { gap: 3px; }
+      .x-axis-label { font-size: 9px; }
+    }
     .table-card { padding: 20px; margin-bottom: 20px; }
     .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
     .table-header h3 { font-size: 15px; color: #0F2C61; margin: 0; font-weight: 800; }
@@ -246,6 +312,7 @@ export class AicteComponent implements OnInit {
   searchCollege: string = '';
   auditLogs: any[] = [];
   exportToast: string = '';
+  maxStateVal: number = 600000;
 
   stateData = [
     { state: 'Maharashtra', total: 420000, verified: 395000 },
