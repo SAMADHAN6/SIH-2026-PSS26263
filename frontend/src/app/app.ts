@@ -15,7 +15,7 @@ export class App implements OnInit {
   botOpen: boolean = false;
   botInput: string = '';
   botMessages: Array<{ sender: 'bot' | 'user'; text: string }> = [
-    { sender: 'bot', text: 'Namaste! I am AICTE Sahayak, powered by Spring Boot 3 & Angular. How can I assist you with APAAR ID verification or approved intake audit?' }
+    { sender: 'bot', text: 'Namaste! I am AICTE Sahayak, your automated regulatory assistant. How can I assist you with APAAR ID verification or approved intake audit?' }
   ];
 
   ngOnInit() {
@@ -49,12 +49,12 @@ export class App implements OnInit {
     if (!query) this.botInput = '';
 
     setTimeout(() => {
-      let reply = 'Under SIH PS 26263, APAAR Verify synchronizes student records with Spring Boot JPA and DigiLocker.';
+      let reply = 'Under SIH PS 26263, APAAR Verify synchronizes student records with the National Academic Depository (NAD) and DigiLocker.';
       const l = text.toLowerCase();
       if (l.includes('apaar')) {
         reply = 'APAAR ID is a 12-digit lifelong academic identifier under NEP 2020 linking DigiLocker, ABC credits, and AICTE approval databases.';
       } else if (l.includes('duplicate')) {
-        reply = 'The Spring Boot backend checks for duplicate APAAR IDs across all institutions and publishes real-time alerts to the Kafka topic.';
+        reply = 'The AICTE National Registry checks for duplicate APAAR IDs across all institutions in real-time and issues immediate regulatory flags.';
       } else if (l.includes('intake')) {
         reply = 'Colleges cannot admit students beyond their Sanctioned Approved Intake unless under the 5% Supernumerary (TFW) or 15% NRI/FN quota.';
       }

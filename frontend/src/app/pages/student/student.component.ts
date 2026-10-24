@@ -15,7 +15,7 @@ import { ApaarService, Student } from '../../services/apaar.service';
           <div class="avatar-badge">🎓</div>
           <div>
             <h1>Student APAAR ID Verification Portal</h1>
-            <p>National Academic Depository (NAD) • Spring Boot 3 + Angular Material</p>
+            <p>National Academic Depository (NAD) • Ministry of Education, Govt. of India</p>
           </div>
         </div>
         <div class="security-pill">🔒 AES-256 Encrypted Session</div>
@@ -103,7 +103,7 @@ import { ApaarService, Student } from '../../services/apaar.service';
             <div>
               <span class="sub-label">Official Verifiable Academic Credential Pass</span>
               <h2>All India Council for Technical Education</h2>
-              <p>National Academic Depository (NAD) • Spring Boot Backend Verified</p>
+              <p>National Academic Depository (NAD) • DigiLocker & NAD Verified</p>
             </div>
             <div class="badge-status" [ngClass]="student.status">
               {{ student.status.toUpperCase() }}

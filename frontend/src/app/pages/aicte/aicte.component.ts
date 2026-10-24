@@ -14,13 +14,13 @@ import { ApaarService, College } from '../../services/apaar.service';
           <div class="avatar-badge">🛡️</div>
           <div>
             <h1>AICTE Central Super Admin Dashboard</h1>
-            <p>Department of Higher Education • AICTE Regulation Bureau • Spring Boot 3 + Angular</p>
+            <p>Department of Higher Education • AICTE Regulation Bureau • National Monitoring Portal</p>
           </div>
         </div>
 
         <div class="header-actions">
           <button (click)="downloadExcel()" class="gov-btn-saffron">
-            📊 Export Apache POI Excel (.xlsx)
+            📊 Export National Compliance Report (.xlsx)
           </button>
           <button (click)="printReport()" class="gov-btn-primary">
             🖨️ Export PDF Report
@@ -145,10 +145,10 @@ import { ApaarService, College } from '../../services/apaar.service';
             </thead>
             <tbody>
               <tr *ngFor="let c of filteredColleges">
-                <td class="font-mono text-bold">{{ c.code }}</td>
-                <td>
-                  <strong>{{ c.name }}</strong>
-                  <span class="sub-text block">{{ c.city }}, {{ c.state }}</span>
+                <td class="code-col font-mono text-bold">{{ c.code }}</td>
+                <td class="college-info-cell">
+                  <div class="college-name-text">{{ c.name }}</div>
+                  <div class="college-location-text">{{ c.city }}, {{ c.state }}</div>
                 </td>
                 <td class="text-center">{{ c.approvedIntake }}</td>
                 <td class="text-center font-bold text-navy">{{ c.actualEnrolment }}</td>
@@ -279,6 +279,10 @@ import { ApaarService, College } from '../../services/apaar.service';
     .gov-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
     .gov-table th { background: #0F2C61; color: #fff; padding: 10px; font-size: 10px; text-transform: uppercase; }
     .gov-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+    .code-col { white-space: nowrap; font-family: monospace; font-weight: 700; color: #0F2C61; min-width: 110px; }
+    .college-info-cell { min-width: 250px; text-align: left; }
+    .college-name-text { font-weight: 700; color: #0F2C61; font-size: 12px; margin-bottom: 2px; }
+    .college-location-text { font-size: 11px; color: #64748b; }
     .font-mono { font-family: monospace; }
     .text-bold { font-weight: 700; color: #0F2C61; }
     .text-center { text-align: center; }
@@ -357,7 +361,7 @@ export class AicteComponent implements OnInit {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      this.exportToast = '✅ Apache POI generated government-standard .xlsx report downloaded successfully from Spring Boot backend!';
+      this.exportToast = '✅ Official AICTE National Compliance .xlsx report downloaded successfully!';
       this.cdr.detectChanges();
       setTimeout(() => {
         this.exportToast = '';

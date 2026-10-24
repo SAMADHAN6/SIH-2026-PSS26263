@@ -14,14 +14,14 @@ import { Router, RouterModule } from '@angular/router';
         <div class="hero-inner">
           <div class="pill-badge">
             <span class="live-dot"></span>
-            <span class="sih-tag">SIH26263 • SPRING BOOT + ANGULAR</span>
+            <span class="sih-tag">SIH26263 • REGULATION BUREAU</span>
             <span>Approval Process & Academic Data Synchronization 2026-2027</span>
           </div>
 
           <h1 class="hero-title">One Nation, One Student ID</h1>
           <h2 class="hero-subtitle">APAAR Verification Platform for AICTE-Approved Institutions</h2>
           <p class="hero-desc">
-            Enterprise Indian e-Governance architecture powered by <strong>Java 21, Spring Boot 3, and Angular Material</strong> to audit approved intake, manage Supernumerary and NRI quotas, and intercept cross-institution duplicate admissions.
+            National e-Governance architecture powered by <strong>DigiLocker & National Academic Depository (NAD)</strong> to audit approved intake, manage Supernumerary and NRI quotas, and intercept cross-institution duplicate admissions.
           </p>
 
           <!-- 3 Portal Cards -->

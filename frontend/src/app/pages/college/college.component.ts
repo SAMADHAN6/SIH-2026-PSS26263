@@ -18,7 +18,7 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
           </div>
 
           <h2>College Admin Portal</h2>
-          <p class="sub-text">AICTE Regulation Bureau • Spring Boot 3 + Angular</p>
+          <p class="sub-text">AICTE Regulation Bureau • Academic Verification Platform</p>
 
           <!-- Navigation Tabs -->
           <div class="auth-tabs">
@@ -84,6 +84,11 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
                 />
               </div>
 
+              <!-- Registration Success Notice -->
+              <div *ngIf="regNotice" class="reg-notice-banner">
+                {{ regNotice }}
+              </div>
+
               <!-- Pending Approval Banner -->
               <div *ngIf="pendingNotice" class="pending-banner">
                 <div class="pending-title">⏳ Application Under Regulatory Review</div>
@@ -99,12 +104,15 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
 
               <!-- Test Accounts Box matching screenshot -->
               <div class="test-accounts-card">
-                <div class="test-header">Test Accounts:</div>
+                <div class="test-header">Test & Registered Accounts:</div>
                 <div class="test-item" (click)="fillCreds('college@aicte.ac.in', '123456')">
                   • Approved: <strong>college&#64;aicte.ac.in</strong> / <strong>123456</strong>
                 </div>
                 <div class="test-item" (click)="fillCreds('pending.college@aicte.ac.in', '123456')">
                   • Pending Approval: <strong>pending.college&#64;aicte.ac.in</strong> / <strong>123456</strong>
+                </div>
+                <div *ngFor="let acc of registeredAccounts" class="test-item reg-acc" (click)="fillCreds(acc.email, acc.password)">
+                  • 🏛️ Registered: <strong>{{ acc.email }}</strong> / <strong>{{ acc.password }}</strong> ({{ acc.college.name }})
                 </div>
               </div>
 
@@ -114,7 +122,7 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
 
           <!-- Tab 2: Request Access / Register Form -->
           <div *ngIf="activeTab === 'register'" class="register-tab-content">
-            <p class="tab-desc">New institutions must submit affiliation details for AICTE APAAR node issuance.</p>
+            <p class="tab-desc">Register your institution to provision an AICTE APAAR node and intake management portal.</p>
             <form (ngSubmit)="submitRegistration()" class="register-form">
               <div class="field">
                 <label>AICTE PERMANENT INSTITUTE ID (PID)</label>
@@ -134,7 +142,7 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
                   [(ngModel)]="regData.name"
                   name="name"
                   class="text-input"
-                  placeholder="e.g. National Institute of Technology"
+                  placeholder="e.g. Pune Institute of Engineering & Technology"
                   required
                 />
               </div>
@@ -145,7 +153,18 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
                   [(ngModel)]="regData.email"
                   name="regEmail"
                   class="text-input"
-                  placeholder="e.g. principal@institution.edu.in"
+                  placeholder="e.g. principal@piet.edu.in"
+                  required
+                />
+              </div>
+              <div class="field">
+                <label>SET PASSKEY / PASSWORD</label>
+                <input
+                  type="password"
+                  [(ngModel)]="regData.password"
+                  name="regPassword"
+                  class="text-input"
+                  placeholder="Create a passkey (e.g. 123456)"
                   required
                 />
               </div>
@@ -156,13 +175,24 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
                   [(ngModel)]="regData.state"
                   name="state"
                   class="text-input"
-                  placeholder="e.g. APJ Abdul Kalam Technological University, Kerala"
+                  placeholder="e.g. Savitribai Phule Pune University, Maharashtra"
+                  required
+                />
+              </div>
+              <div class="field">
+                <label>SANCTIONED INTAKE CAPACITY</label>
+                <input
+                  type="number"
+                  [(ngModel)]="regData.approvedIntake"
+                  name="approvedIntake"
+                  class="text-input"
+                  placeholder="e.g. 600"
                   required
                 />
               </div>
 
               <div *ngIf="regSuccess" class="reg-success">
-                ✅ Application Submitted! Reference ID <strong>#AICTE-NEW-2026-4491</strong> generated. Check official email for verification handshake.
+                ✅ Application Submitted! Reference ID <strong>#AICTE-REG-{{ regData.pid || '2026' }}</strong> generated. Provisioning your dashboard credentials...
               </div>
 
               <button type="submit" class="sign-in-btn">Submit Institutional Registration</button>
@@ -460,7 +490,7 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
               <h3>Bulk Enrolment CSV Upload</h3>
               <button (click)="showUpload = false" class="close-btn">✕</button>
             </div>
-            <p class="sub-text">AICTE Intake Anomaly Validator • Spring Boot Ingestion</p>
+            <p class="sub-text">AICTE Intake Anomaly Validator • Batch Ingestion Engine</p>
 
             <div class="drop-zone">
               <p>Select or drag student CSV file</p>
@@ -615,6 +645,22 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
     }
     .sign-in-btn:hover { background: #0c2340; }
     .sign-in-btn:active { transform: scale(0.99); }
+
+    .reg-notice-banner {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 14px;
+      text-align: left;
+      font-weight: 600;
+    }
+    .reg-acc {
+      color: #065f46 !important;
+      font-weight: 600;
+    }
 
     .login-err {
       background: #fee2e2;
@@ -1102,16 +1148,22 @@ export class CollegeComponent implements OnInit {
   password: string = '123456';
   loginError: string = '';
   pendingNotice: string = '';
+  regNotice: string = '';
 
   // Google Modal
   showGoogleModal: boolean = false;
+
+  // Registered Accounts storage
+  registeredAccounts: Array<{ email: string; password: string; college: College }> = [];
 
   // Registration data
   regData = {
     pid: '',
     name: '',
     email: '',
-    state: ''
+    password: '',
+    state: '',
+    approvedIntake: 600
   };
   regSuccess: boolean = false;
 
@@ -1335,6 +1387,16 @@ export class CollegeComponent implements OnInit {
     this.students = [...this.initialRegistryData];
     this.filteredStudents = [...this.students];
     this.duplicates = this.students.filter(s => s.status === 'duplicate' || s.duplicateCollegeName);
+
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('aicte_registered_colleges');
+      if (saved) {
+        try {
+          this.registeredAccounts = JSON.parse(saved);
+        } catch (e) {}
+      }
+    }
+
     this.fetchData();
   }
 
@@ -1344,22 +1406,42 @@ export class CollegeComponent implements OnInit {
     this.password = p;
     this.loginError = '';
     this.pendingNotice = '';
+    this.regNotice = '';
   }
 
   // Traditional Sign-In
   login() {
     this.loginError = '';
     this.pendingNotice = '';
+    this.regNotice = '';
 
-    if (this.email === 'college@aicte.ac.in' && this.password === '123456') {
+    const cleanEmail = (this.email || '').trim().toLowerCase();
+    const cleanPass = this.password || '';
+
+    // Check newly registered institutions first
+    const matched = this.registeredAccounts.find(a =>
+      a.email.toLowerCase() === cleanEmail &&
+      a.password === cleanPass
+    );
+
+    if (matched) {
+      this.college = matched.college;
+      this.isAuthenticated = true;
+      this.isGoogleUser = false;
+      this.loggedInUser = `${cleanEmail} (${matched.college.name})`;
+      this.fetchData();
+      return;
+    }
+
+    if (cleanEmail === 'college@aicte.ac.in' && cleanPass === '123456') {
       this.isAuthenticated = true;
       this.isGoogleUser = false;
       this.loggedInUser = this.email;
       this.fetchData();
-    } else if (this.email === 'pending.college@aicte.ac.in' && this.password === '123456') {
+    } else if (cleanEmail === 'pending.college@aicte.ac.in' && cleanPass === '123456') {
       this.pendingNotice = 'Application Under Regulatory Review';
     } else {
-      this.loginError = 'Invalid institutional credentials. Please select an approved test account or sign in with Google.';
+      this.loginError = 'Invalid institutional credentials. Please select an approved account, sign in with Google, or register a new institution.';
     }
   }
 
@@ -1381,14 +1463,49 @@ export class CollegeComponent implements OnInit {
   }
 
   submitRegistration() {
+    if (!this.regData.email || !this.regData.name) {
+      this.loginError = 'Please provide college name and official email.';
+      return;
+    }
+
+    const intake = Number(this.regData.approvedIntake) || 600;
+    const newCollege: College = {
+      id: 'COL-' + (this.regData.pid || Math.floor(1000 + Math.random() * 9000)),
+      name: this.regData.name.trim(),
+      code: 'AICTE-' + (this.regData.pid || 'NEW-001'),
+      state: this.regData.state || 'National',
+      city: 'Main Campus',
+      approvedIntake: intake,
+      actualEnrolment: Math.floor(intake * 0.95),
+      verifiedCount: Math.floor(intake * 0.78),
+      pendingCount: Math.floor(intake * 0.15),
+      duplicateCount: 8,
+      supernumeraryQuota: 30,
+      nriCount: 15,
+      fnCount: 5
+    };
+
+    const newAcc = {
+      email: this.regData.email.trim().toLowerCase(),
+      password: this.regData.password || '123456',
+      college: newCollege
+    };
+
+    this.registeredAccounts = this.registeredAccounts.filter(a => a.email !== newAcc.email);
+    this.registeredAccounts.push(newAcc);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('aicte_registered_colleges', JSON.stringify(this.registeredAccounts));
+    }
+
     this.regSuccess = true;
     setTimeout(() => {
       this.regSuccess = false;
       this.activeTab = 'signin';
-      this.email = 'pending.college@aicte.ac.in';
-      this.password = '123456';
+      this.email = newAcc.email;
+      this.password = newAcc.password;
+      this.regNotice = `✅ Institution Registered! Your credentials for "${newCollege.name}" have been saved. Click "Sign In to Dashboard" below to access your portal.`;
       this.cdr.detectChanges();
-    }, 2200);
+    }, 1200);
   }
 
   logout() {
@@ -1526,7 +1643,7 @@ export class CollegeComponent implements OnInit {
   }
 
   triggerUpload() {
-    this.uploadNotice = 'Ingesting and validating batch against Spring Boot JPA repository...';
+    this.uploadNotice = 'Ingesting and validating batch against AICTE Central Depository...';
     setTimeout(() => {
       this.uploadNotice = 'Success! 50 records processed. 42 matched DigiLocker, 2 duplicate seats flagged.';
       setTimeout(() => {
