@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApaarService, Student } from '../../services/apaar.service';
+import { timeout, catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-student',
@@ -43,6 +44,7 @@ import { ApaarService, Student } from '../../services/apaar.service';
             <button type="button" (click)="setPreset('123456789012')">Verified: 123456789012</button>
             <button type="button" (click)="setPreset('100000000013')">Pending: 100000000013</button>
             <button type="button" (click)="setPreset('100000000005')">Duplicate: 100000000005</button>
+            <button type="button" (click)="setPreset('100000000012')">Duplicate #2: 100000000012</button>
             <button type="button" (click)="setPreset('APAAR12345678')">Legacy: APAAR12345678</button>
           </div>
 
@@ -347,6 +349,30 @@ export class StudentComponent implements OnInit {
       state: 'Delhi'
     },
     {
+      apaarId: '100000000012',
+      name: 'Ananya Banerjee',
+      course: 'B.Tech Computer Science & Engineering',
+      academicYear: 1,
+      category: 'General',
+      abcCredits: 30,
+      admissionDate: '2024-08-01',
+      status: 'duplicate',
+      enrollmentNo: '2024-CSE-112',
+      dob: '2005-08-14',
+      gender: 'Female',
+      mobile: '+91 98310 99887',
+      aadhaarLast4: '3984',
+      collegeId: 'COL001',
+      collegeName: 'Delhi Institute of Engineering & Technology',
+      tenthPercent: 96.0,
+      twelfthPercent: 94.2,
+      digilockerVerified: true,
+      state: 'Delhi',
+      duplicateCollegeName: 'Bangalore Technical & Science Academy',
+      duplicateCollegeId: 'COL003',
+      flagReason: 'Dual enrolment recorded across Delhi and Karnataka colleges in AY 2024-25'
+    },
+    {
       apaarId: 'APAAR10000003',
       name: 'Rohan Deshmukh',
       course: 'B.Tech Electronics & Communication',
@@ -374,6 +400,24 @@ export class StudentComponent implements OnInit {
     this.verify();
   }
 
+  findLocal(query: string): Student | null {
+    const q = (query || '').trim().toLowerCase();
+    // Handle aliases
+    if (q === 'apaar12345678' || q === '123456789012') {
+      return this.fallbackStudents.find(s => s.apaarId === '123456789012') || null;
+    }
+    if (q === 'apaar10000005' || q === '100000000005') {
+      return this.fallbackStudents.find(s => s.apaarId === '100000000005') || null;
+    }
+    if (q === 'apaar10000012' || q === '100000000012') {
+      return this.fallbackStudents.find(s => s.apaarId === '100000000012') || null;
+    }
+    if (q === 'apaar10000013' || q === '100000000013') {
+      return this.fallbackStudents.find(s => s.apaarId === '100000000013') || null;
+    }
+    return this.fallbackStudents.find(s => s.apaarId.toLowerCase() === q || s.apaarId.toLowerCase().includes(q)) || null;
+  }
+
   verify() {
     const rawInput = (this.apaarInput || '').trim();
     if (!rawInput) {
@@ -381,49 +425,43 @@ export class StudentComponent implements OnInit {
       return;
     }
 
-    this.loading = true;
     this.error = null;
+
+    // INSTANT LOCAL RESOLUTION:
+    // When clicking presets (e.g. Duplicate: 100000000005) or entering known demo IDs,
+    // show the record immediately without waiting for slow backend/Render spin-up!
+    const local = this.findLocal(rawInput);
+    if (local) {
+      this.student = { ...local };
+      this.loading = false;
+      this.cdr.detectChanges();
+
+      // Silent non-blocking background refresh if backend is alive
+      this.apaarService.verifyApaar(rawInput).pipe(
+        timeout(1200),
+        catchError(() => of(null))
+      ).subscribe(res => {
+        if (res && res.success && res.data) {
+          this.student = res.data;
+          this.cdr.detectChanges();
+        }
+      });
+      return;
+    }
+
+    // For custom IDs not in presets, query backend with a fast 2.0s timeout
+    this.loading = true;
     this.student = null;
     this.cdr.detectChanges();
 
-    // Helper to find in local fallback
-    const findLocal = (query: string): Student | null => {
-      const q = query.toLowerCase();
-      // Handle legacy aliases
-      if (q === 'apaar12345678' || q === '123456789012') {
-        return this.fallbackStudents.find(s => s.apaarId === '123456789012') || null;
-      }
-      if (q === 'apaar10000005' || q === '100000000005') {
-        return this.fallbackStudents.find(s => s.apaarId === '100000000005') || null;
-      }
-      if (q === 'apaar10000013' || q === '100000000013') {
-        return this.fallbackStudents.find(s => s.apaarId === '100000000013') || null;
-      }
-      return this.fallbackStudents.find(s => s.apaarId.toLowerCase() === q || s.apaarId.toLowerCase().includes(q)) || null;
-    };
-
-    this.apaarService.verifyApaar(rawInput).subscribe({
+    this.apaarService.verifyApaar(rawInput).pipe(
+      timeout(2000),
+      catchError(() => of(null))
+    ).subscribe({
       next: (res) => {
         this.loading = false;
-        if (res.success && res.data) {
+        if (res && res.success && res.data) {
           this.student = res.data;
-        } else {
-          const local = findLocal(rawInput);
-          if (local) {
-            this.student = local;
-          } else {
-            this.error = 'No student record found matching APAAR ID: ' + rawInput;
-          }
-        }
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        // Fallback to local verified students
-        const local = findLocal(rawInput);
-        if (local) {
-          this.student = local;
-          this.error = null;
         } else {
           this.error = 'No student record found matching APAAR ID: ' + rawInput + '. Please verify with institution.';
         }

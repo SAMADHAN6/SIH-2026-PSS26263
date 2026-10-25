@@ -288,28 +288,28 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
 
         <!-- 4 Metric Cards (Total: 1240, Verified: 980, Pending: 200, Duplicates: 60) -->
         <div class="metrics-grid">
-          <div class="metric-card gov-card">
+          <div class="metric-card gov-card" (click)="statusFilter = 'all'; filterStudents()" style="cursor: pointer;" title="Click to view all enrolments">
             <span class="m-label">TOTAL ENROLLED</span>
             <div class="m-val">{{ college?.actualEnrolment || 1240 }}</div>
             <span class="m-sub">Approved Intake: <strong>{{ college?.approvedIntake || 1200 }}</strong></span>
           </div>
 
-          <div class="metric-card gov-card border-green">
+          <div class="metric-card gov-card border-green" (click)="statusFilter = 'verified'; filterStudents()" style="cursor: pointer;" title="Click to filter verified records">
             <span class="m-label text-green">VERIFIED RECORDS</span>
             <div class="m-val text-green">{{ college?.verifiedCount || 980 }}</div>
             <span class="m-sub text-green">79.0% of Total Enrolments</span>
           </div>
 
-          <div class="metric-card gov-card border-amber">
+          <div class="metric-card gov-card border-amber" (click)="statusFilter = 'pending'; filterStudents()" style="cursor: pointer;" title="Click to filter pending records">
             <span class="m-label text-amber">PENDING VERIFICATION</span>
             <div class="m-val text-amber">{{ college?.pendingCount || 200 }}</div>
             <span class="m-sub text-amber">DigiLocker queued</span>
           </div>
 
-          <div class="metric-card gov-card border-red">
+          <div class="metric-card gov-card border-red" (click)="statusFilter = 'duplicate'; filterStudents()" style="cursor: pointer;" title="Click to filter duplicate records">
             <span class="m-label text-red">DUPLICATE ENROLMENTS</span>
             <div class="m-val text-red">{{ college?.duplicateCount || 60 }}</div>
-            <span class="m-sub text-red">Cross-institution conflicts</span>
+            <span class="m-sub text-red">Cross-institution conflicts ↗</span>
           </div>
         </div>
 
@@ -342,6 +342,7 @@ import { ApaarService, Student, College } from '../../services/apaar.service';
                 <p>Conflicting College: <strong>{{ dup.duplicateCollegeName }} ({{ dup.duplicateCollegeId }})</strong></p>
               </div>
               <div class="dup-actions">
+                <button (click)="verify(dup.apaarId)" class="btn-verify" style="padding: 6px 14px; font-size: 11px; margin-right: 8px;">Override & Verify</button>
                 <button (click)="reject(dup.apaarId)" class="reject-btn">Reject Duplicate Seat</button>
               </div>
             </div>

@@ -65,6 +65,7 @@ import { Router, RouterModule } from '@angular/router';
               <button (click)="setDemo('123456789012')">Verified: <strong>123456789012</strong></button>
               <button (click)="setDemo('100000000013')">Pending: <strong>100000000013</strong></button>
               <button (click)="setDemo('100000000005')">Duplicate: <strong>100000000005</strong></button>
+              <button (click)="setDemo('100000000012')">Duplicate #2: <strong>100000000012</strong></button>
               <button (click)="setDemo('APAAR12345678')">Legacy: <strong>APAAR12345678</strong></button>
             </div>
           </div>
