@@ -52,7 +52,8 @@ export class ApaarService {
     if (typeof window !== 'undefined') {
       const customUrl = (window as any).API_URL || localStorage.getItem('API_URL');
       if (customUrl) return customUrl;
-      if (window.location.hostname !== 'localhost') {
+      const host = window.location.hostname;
+      if (host !== 'localhost' && host !== '127.0.0.1') {
         return 'https://apaar-backend.onrender.com/api';
       }
     }

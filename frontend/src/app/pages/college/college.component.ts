@@ -1516,33 +1516,37 @@ export class CollegeComponent implements OnInit {
   }
 
   fetchData() {
-    this.apaarService.getCollegeStats().subscribe({
-      next: (res) => {
-        if (res && res.success) {
-          this.college = res.college;
-          this.cdr.detectChanges();
+    const isCustom = this.registeredAccounts.some(a => a.college.id === this.college?.id);
+    if (!isCustom) {
+      this.apaarService.getCollegeStats('COL001').subscribe({
+        next: (res) => {
+          if (res && res.success) {
+            this.college = res.college;
+            this.cdr.detectChanges();
+          }
+        },
+        error: () => {
+          if (!this.college || this.college.id === 'COL001') {
+            this.college = {
+              id: 'COL001',
+              name: 'Delhi Institute of Engineering & Technology',
+              code: 'AICTE-DL-0012',
+              state: 'Delhi',
+              city: 'New Delhi',
+              approvedIntake: 1200,
+              actualEnrolment: 1240,
+              verifiedCount: 980,
+              pendingCount: 200,
+              duplicateCount: 60,
+              supernumeraryQuota: 45,
+              nriCount: 24,
+              fnCount: 8
+            };
+            this.cdr.detectChanges();
+          }
         }
-      },
-      error: () => {
-        // Fallback default college stats
-        this.college = {
-          id: 'COL001',
-          name: 'Delhi Institute of Engineering & Technology',
-          code: 'AICTE-DL-0012',
-          state: 'Delhi',
-          city: 'New Delhi',
-          approvedIntake: 1200,
-          actualEnrolment: 1240,
-          verifiedCount: 980,
-          pendingCount: 200,
-          duplicateCount: 60,
-          supernumeraryQuota: 45,
-          nriCount: 24,
-          fnCount: 8
-        };
-        this.cdr.detectChanges();
-      }
-    });
+      });
+    }
 
     this.apaarService.getStudents().subscribe({
       next: (res) => {
