@@ -9,12 +9,14 @@ import gov.aicte.apaar.repository.VerificationLogRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@Profile("!render")
 public class DataInitializer implements CommandLineRunner {
 
     private final StudentRepository studentRepository;

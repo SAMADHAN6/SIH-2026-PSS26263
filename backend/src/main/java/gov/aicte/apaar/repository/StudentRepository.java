@@ -13,6 +13,7 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     Optional<Student> findByApaarIdIgnoreCase(String apaarId);
     List<Student> findByCollegeIdOrderByNameAsc(String collegeId);
     List<Student> findByStatus(String status);
+    List<Student> findTop100ByStatusOrderByIdAsc(String status);
     List<Student> findAllByOrderByNameAsc();
 
     @Query("SELECT s FROM Student s WHERE " +

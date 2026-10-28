@@ -1,0 +1,59 @@
+databases:
+  - name: apaar-verify-db
+    databaseName: apaardb
+    user: apaar
+    plan: 0.1c-256mb
+    region: oregon
+
+services:
+  - type: web
+    name: apaar-verify-backend
+    runtime: docker
+    region: oregon
+    plan: free
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /actuator/health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: render
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: apaar-verify-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: apaar-verify-db
+          property: port
+      - key: POSTGRES_DB
+        fromDatabase:
+          name: apaar-verify-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: apaar-verify-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: apaar-verify-db
+          property: password
+      - key: APAAR_ADMIN_EMAIL
+        value: admin@aicte.gov.in
+      - key: APAAR_ADMIN_PASSWORD
+        generateValue: true
+      - key: APP_ALLOWED_ORIGINS
+        value: https://apaar-verify-frontend.onrender.com
+
+  - type: web
+    name: apaar-verify-frontend
+    runtime: docker
+    region: oregon
+    plan: free
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
+    healthCheckPath: /
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: API_URL
+        value: https://apaar-verify-backend.onrender.com/api

@@ -81,22 +81,6 @@ public class AicteController {
                 .sorted((a, b) -> Integer.compare((int) b.get("total"), (int) a.get("total")))
                 .collect(Collectors.toList());
 
-        // Live duplicate alert feed from actual flagged student records
-        List<Student> duplicateStudents = studentRepository.findByStatus("duplicate");
-        List<Map<String, Object>> duplicateFeed = duplicateStudents.stream()
-                .limit(8)
-                .map(s -> {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("apaarId", s.getApaarId());
-                    m.put("name", s.getName());
-                    m.put("collegeName", s.getCollegeName());
-                    m.put("conflictCollege", s.getDuplicateCollegeName() != null ? s.getDuplicateCollegeName() : "External institute");
-                    m.put("reason", s.getFlagReason() != null ? s.getFlagReason() : "Cross-institution enrolment conflict");
-                    m.put("severity", "CRITICAL");
-                    return m;
-                })
-                .collect(Collectors.toList());
-
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("success", true);
         summary.put("institutions", institutions);
@@ -110,14 +94,19 @@ public class AicteController {
         summary.put("fn", fn);
         summary.put("verifiedPct", enrolled > 0 ? Math.round(verified * 1000.0 / enrolled) / 10.0 : 0);
         summary.put("stateWise", stateWise);
-        summary.put("duplicateFeed", duplicateFeed);
+        // Identifiable duplicate alerts are available only from the admin-only endpoint.
+        summary.put("duplicateFeed", List.of());
         summary.put("generatedAt", LocalDateTime.now().toString());
 
         return ResponseEntity.ok(summary);
     }
 
     @GetMapping("/colleges")
-    public ResponseEntity<?> getAllColleges() {
+    public ResponseEntity<?> getAllColleges(
+            @RequestHeader(value = "X-Auth-Token", required = false) String token) {
+        if (!isSuperAdmin(token)) {
+            return unauthorized();
+        }
         List<College> list = collegeRepository.findAllByOrderByNameAsc();
         return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -125,6 +114,26 @@ public class AicteController {
                 "activeInstitutions", list.stream().filter(c -> Boolean.TRUE.equals(c.getActive())).count(),
                 "data", list
         ));
+    }
+
+    @GetMapping("/duplicate-alerts")
+    public ResponseEntity<?> getDuplicateAlerts(
+            @RequestHeader(value = "X-Auth-Token", required = false) String token) {
+        if (!isSuperAdmin(token)) {
+            return unauthorized();
+        }
+        List<Map<String, Object>> alerts = studentRepository.findTop100ByStatusOrderByIdAsc("duplicate").stream()
+                .map(s -> {
+                    Map<String, Object> alert = new LinkedHashMap<>();
+                    alert.put("apaarId", s.getApaarId());
+                    alert.put("name", s.getName());
+                    alert.put("collegeName", s.getCollegeName());
+                    alert.put("conflictCollege", s.getDuplicateCollegeName() != null ? s.getDuplicateCollegeName() : "External institute");
+                    alert.put("reason", s.getFlagReason() != null ? s.getFlagReason() : "Cross-institution enrolment conflict");
+                    alert.put("severity", "CRITICAL");
+                    return alert;
+                }).collect(Collectors.toList());
+        return ResponseEntity.ok(Map.of("success", true, "data", alerts));
     }
 
     /**
@@ -149,6 +158,9 @@ public class AicteController {
                 .<ResponseEntity<?>>map(college -> {
                     college.setActive(activate);
                     collegeRepository.save(college);
+                    if (!activate) {
+                        tokenService.revokeCollegeSessions(college.getId());
+                    }
                     return ResponseEntity.ok(Map.of(
                             "success", true,
                             "message", (activate ? "Institution re-instated: " : "Institution suspended: ") + college.getName(),
@@ -193,9 +205,8 @@ public class AicteController {
      */
     @GetMapping("/export-excel")
     public ResponseEntity<?> exportExcelReport(
-            @RequestHeader(value = "X-Auth-Token", required = false) String headerToken,
-            @RequestParam(value = "token", required = false) String queryToken) {
-        if (!isSuperAdmin(headerToken != null && !headerToken.isBlank() ? headerToken : queryToken)) {
+            @RequestHeader(value = "X-Auth-Token", required = false) String headerToken) {
+        if (!isSuperAdmin(headerToken)) {
             return unauthorized();
         }
         try {

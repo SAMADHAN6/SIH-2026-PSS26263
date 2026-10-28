@@ -513,7 +513,6 @@ export class AicteComponent implements OnInit {
         if (res) {
           this.summary = res;
           this.stateData = res.stateWise || [];
-          this.duplicateFeed = res.duplicateFeed || [];
           this.computeChartScale();
           this.cdr.detectChanges();
         }
@@ -534,6 +533,14 @@ export class AicteComponent implements OnInit {
       error: () => {
         this.ui.showError('Institution registry could not be loaded — the AICTE gateway is unreachable.');
       }
+    });
+
+    this.apaarService.getDuplicateAlerts().subscribe({
+      next: (res) => {
+        this.duplicateFeed = res?.success ? (res.data || []) : [];
+        this.cdr.detectChanges();
+      },
+      error: () => { this.duplicateFeed = []; }
     });
 
     this.apaarService.getAuditLogs().subscribe({

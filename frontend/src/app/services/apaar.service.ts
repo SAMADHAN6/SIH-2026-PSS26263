@@ -157,7 +157,11 @@ export class ApaarService {
   }
 
   getAllColleges(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/aicte/colleges`);
+    return this.http.get(`${this.baseUrl}/aicte/colleges`, this.authHeaders());
+  }
+
+  getDuplicateAlerts(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/aicte/duplicate-alerts`, this.authHeaders());
   }
 
   setCollegeStatus(collegeId: string, action: 'activate' | 'suspend'): Observable<any> {

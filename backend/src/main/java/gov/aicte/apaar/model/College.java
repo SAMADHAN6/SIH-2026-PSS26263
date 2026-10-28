@@ -1,6 +1,7 @@
 package gov.aicte.apaar.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "colleges")
@@ -23,6 +24,7 @@ public class College {
     private String email;
 
     @Column(length = 64)
+    @JsonIgnore
     private String passwordHash;
 
     @Column(nullable = false)

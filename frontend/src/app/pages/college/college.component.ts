@@ -1190,6 +1190,9 @@ export class CollegeComponent implements OnInit {
         if (res && res.success && res.college) {
           this.applySession(res, false);
           this.ui.showToast(`Institution "${res.college.name}" registered — your portal is live with real (zeroed) statistics.`);
+        } else if (res?.pendingApproval) {
+          this.regNotice = res.message || 'Institution submitted for review. Portal access is pending approval.';
+          this.regData.password = '';
         } else {
           this.loginError = res?.message || 'Registration failed. Please try again.';
         }

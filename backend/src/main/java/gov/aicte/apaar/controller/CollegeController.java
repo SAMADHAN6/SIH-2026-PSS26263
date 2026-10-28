@@ -79,6 +79,9 @@ public class CollegeController {
         if ("COLLEGE_ADMIN".equals(session.role())) {
             return session.collegeId();
         }
+        if (!"AICTE_SUPER_ADMIN".equals(session.role())) {
+            return null;
+        }
         return (requestedCollegeId == null || requestedCollegeId.isBlank()) ? null : requestedCollegeId;
     }
 

@@ -46,8 +46,8 @@ const UI: Dict = {
   'student.enter': { en: 'Enter 12-Digit APAAR ID / Academic Identifier', hi: '12-अंकीय APAAR ID दर्ज करें' },
   'student.fetch': { en: 'Fetch Student Profile', hi: 'छात्र प्रोफ़ाइल प्राप्त करें' },
   'student.fetching': { en: 'Querying DigiLocker...', hi: 'डिजिलॉकर से जानकारी ली जा रही है...' },
-  'student.consent': { en: 'DPDP Statutory Consent', hi: 'DPDP वैधानिक सहमति' },
-  'student.consentText': { en: 'I hereby give my consent to share my APAAR data and Academic Bank of Credits (ABC) credentials with my admitted AICTE-approved institution.', hi: 'मैं अपना APAAR डेटा और अकादमिक बैंक ऑफ क्रेडिट्स (ABC) प्रमाण-पत्र अपने AICTE-मान्यता प्राप्त संस्थान के साथ साझा करने की सहमति देता/देती हूँ।' },
+  'student.consent': { en: 'Demo acknowledgement', hi: 'डेमो स्वीकृति' },
+  'student.consentText': { en: 'I understand this demonstration is not connected to DigiLocker and I will not enter real student data.', hi: 'मैं समझता/समझती हूँ कि यह डेमो DigiLocker से जुड़ा नहीं है और मैं वास्तविक छात्र डेटा दर्ज नहीं करूँगा/करूँगी।' },
   'student.pass': { en: 'Official Verifiable Academic Credential Pass', hi: 'आधिकारिक सत्यापित शैक्षणिक क्रेडेंशियल पास' },
   'student.print': { en: 'Print / Save as PDF', hi: 'प्रिंट / PDF सहेजें' },
   'student.timeline': { en: 'Verification Lifecycle Timeline', hi: 'सत्यापन प्रक्रिया टाइमलाइन' },
@@ -127,8 +127,8 @@ export const BOT_FAQ: Array<{ keywords: string[]; en: string; hi: string }> = [
   },
   {
     keywords: ['dpdp', 'privacy', 'consent', 'data safe', 'security'],
-    en: 'Your data is protected under the DPDP Act 2023. Every verification requires your explicit consent, sessions are token-protected, and every action is written to an immutable audit ledger.',
-    hi: 'आपका डेटा DPDP अधिनियम 2023 के अंतर्गत सुरक्षित है। हर सत्यापन के लिए आपकी स्पष्ट सहमति आवश्यक है, सत्र टोकन-सुरक्षित हैं, और हर क्रिया ऑडिट लेजर में दर्ज होती है।'
+    en: 'This demonstration uses sample records. DigiLocker identity checks and production-grade consent verification are not connected.',
+    hi: 'इस डेमो में नमूना रिकॉर्ड हैं। DigiLocker पहचान जाँच और उत्पादन-स्तर की सहमति सत्यापन सुविधा जुड़ी नहीं है।'
   },
   {
     keywords: ['register', 'college', 'institution', 'signup', 'new'],

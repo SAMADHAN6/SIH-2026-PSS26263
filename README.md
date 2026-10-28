@@ -31,10 +31,11 @@ For a rock-solid demo (recommended), run the full stack locally — see below.
 5. **Government-Standard Reporting** — multi-sheet Excel export generated live from the database: National Summary + College Compliance + **full Student Registry with photographs**.
 
 ### Security Model (implemented)
-- **Token-protected mutations** — verify/reject, bulk upload and college administration require an authenticated session; the audit ledger records the real actor.
+- **Token-protected administration** — registry, audit and duplicate-alert reads require a Super Admin session; college status changes are scoped to the signed-in institution.
 - **Portal isolation** — after sign-in, students see only the Student Portal, colleges only their own dashboard (scoped to their own students), and the Super Admin only the national console.
-- **Institutional registration** creates a *real* database record with zeroed statistics — no simulated data.
-- **DPDP Act 2023 consent** — the student portal requires explicit consent before any record is queried.
+- **Institutional registration** creates a pending record; an AICTE admin must approve it before the institution can sign in.
+- **Student data minimization** — public verification responses do not return contact details, DOB, Aadhaar suffix, or the full student entity. The checkbox is a demo consent gate, not a substitute for verified consent/DigiLocker authorization in production.
+- **Production Google login is disabled** until a real server-verified Google OAuth flow is configured. The demo email-only login is not authentication.
 - Records are **persistent** (file-based H2 database) and survive restarts.
 
 ---
@@ -46,13 +47,14 @@ For a rock-solid demo (recommended), run the full stack locally — see below.
 | Frontend | **Angular 21 + TypeScript 5.9** (standalone components, reactive forms) | ✅ Live |
 | UI security | QR code generation (`qrcode`), SHA-256 seals via **Web Crypto API** | ✅ Live |
 | Backend | **Java 21 + Spring Boot 3.3** (Web, Data JPA, Security, Validation) | ✅ Live |
-| Authentication | Spring Security + server-side token sessions (BCrypt credential hashing) | ✅ Live |
+| Authentication | Spring Security + PostgreSQL-backed token sessions (BCrypt credential hashing) | ✅ Ready |
 | Database (demo) | **File-based H2** — zero-setup, records persist in `backend/data/` | ✅ Live |
 | Database (production) | **PostgreSQL** (driver bundled; activate with `SPRING_PROFILES_ACTIVE=postgres`) | ✅ Ready (profile) |
 | Reports | **Apache POI** — 3-sheet formatted .xlsx (summary, compliance, student registry with photos) | ✅ Live |
 | Event streaming | **Spring Kafka** producer for duplicate-anomaly events (`aicte.apaar.duplicate-events`), optional at runtime | ✅ Wired (broker optional) |
 | Deployment | **Docker + docker-compose** (backend + nginx frontend with `/api` reverse proxy, DB volume) | ✅ Live |
 | CI/CD | **GitHub Actions** (`.github/workflows/ci.yml` — builds & tests both apps) | ✅ Live |
+| Hosting | **Render Blueprint** (`render.yaml`) for separate frontend/backend services and managed PostgreSQL | ✅ Ready to deploy |
 | Target architecture | Redis caching layer, Python/FastAPI analytics microservice, Email/SMS gateway | 🗺️ Planned (roadmap) |
 
 > **Demo integrity note:** the APAAR/ABC/DigiLocker lookup is a **simulated adapter** behind a clean service boundary — swap in the official API credentials when authorized access is granted. All dashboard figures are computed from the seeded/entered database, never hardcoded.
@@ -144,12 +146,21 @@ cd frontend && npm run build
 # Backend health
 curl -s http://localhost:8085/api/aicte/summary
 
-# Student verification
-curl -s http://localhost:8085/api/verify/123456789012
+# Student verification (demo consent flag; response is data-minimized)
+curl -s 'http://localhost:8085/api/verify/123456789012?consent=true'
 
 # Excel report
-curl -o report.xlsx http://localhost:8085/api/aicte/export-excel
+curl -H 'X-Auth-Token: <admin-session-token>' -o report.xlsx http://localhost:8085/api/aicte/export-excel
 ```
+
+### Deploy frontend + backend to Render
+
+1. In Render, choose **New → Blueprint** and connect this GitHub repository; Render reads `render.yaml` to create the backend, frontend, and PostgreSQL database.
+2. Wait for both web services and the database to become healthy. The frontend gets the backend API URL at container startup; the backend allows only the configured frontend origin.
+3. In the backend service's Environment page, copy the generated `APAAR_ADMIN_PASSWORD` into your password manager. Set `APAAR_ADMIN_EMAIL` to the intended admin account before sharing the site.
+4. The backend does **not** seed demo records in the `render` profile. Register institutions, then approve them in the admin console.
+
+The blueprint uses a small managed PostgreSQL plan for persistent data; Render's free web services may sleep when idle. Do not share the production URL until actual student consent/identity verification is integrated. Email-only Google sign-in is disabled by the Render profile until verified OAuth is implemented.
 
 ---
 

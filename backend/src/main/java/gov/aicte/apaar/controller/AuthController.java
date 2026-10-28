@@ -3,6 +3,8 @@ package gov.aicte.apaar.controller;
 import gov.aicte.apaar.model.College;
 import gov.aicte.apaar.repository.CollegeRepository;
 import gov.aicte.apaar.service.TokenService;
+import gov.aicte.apaar.service.RequestRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Duration;
 
 /**
  * Authentication endpoints for the three portal roles.
@@ -26,6 +29,7 @@ public class AuthController {
     private final CollegeRepository collegeRepository;
     private final TokenService tokenService;
     private final PasswordEncoder passwordEncoder;
+    private final RequestRateLimiter rateLimiter;
 
     @Value("${apaar.admin.email:admin@aicte.gov.in}")
     private String adminEmail;
@@ -33,16 +37,22 @@ public class AuthController {
     @Value("${apaar.admin.password:Aicte@2026}")
     private String adminPassword;
 
+    @Value("${app.auth.google-login-enabled:true}")
+    private boolean googleLoginEnabled;
+
     public AuthController(CollegeRepository collegeRepository,
                           TokenService tokenService,
-                          PasswordEncoder passwordEncoder) {
+                          PasswordEncoder passwordEncoder,
+                          RequestRateLimiter rateLimiter) {
         this.collegeRepository = collegeRepository;
         this.tokenService = tokenService;
         this.passwordEncoder = passwordEncoder;
+        this.rateLimiter = rateLimiter;
     }
 
     @PostMapping("/college-login")
-    public ResponseEntity<?> collegeLogin(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> collegeLogin(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        if (isRateLimited(request, "college-login", 10, Duration.ofMinutes(15))) return tooManyRequests();
         String email = trimOrNull(body.get("email"));
         String password = body.get("password");
 
@@ -85,6 +95,13 @@ public class AuthController {
      */
     @PostMapping("/google-login")
     public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> body) {
+        if (!googleLoginEnabled) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(Map.of(
+                    "success", false,
+                    "error", "GOOGLE_LOGIN_DISABLED",
+                    "message", "Google sign-in is disabled until verified Google OAuth is configured."
+            ));
+        }
         String email = trimOrNull(body.get("email"));
 
         if (email == null || !email.contains("@")) {
@@ -113,7 +130,8 @@ public class AuthController {
     }
 
     @PostMapping("/admin-login")
-    public ResponseEntity<?> adminLogin(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> adminLogin(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        if (isRateLimited(request, "admin-login", 5, Duration.ofMinutes(15))) return tooManyRequests();
         String email = trimOrNull(body.get("email"));
         String password = body.get("password");
 
@@ -140,7 +158,8 @@ public class AuthController {
      * onboard students via bulk upload.
      */
     @PostMapping("/register")
-    public ResponseEntity<?> registerCollege(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> registerCollege(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        if (isRateLimited(request, "register", 5, Duration.ofHours(1))) return tooManyRequests();
         String name = trimOrNull(body.get("name"));
         String email = trimOrNull(body.get("email"));
         String password = body.get("password");
@@ -172,7 +191,8 @@ public class AuthController {
         college.setCity(city != null ? city : "Main Campus");
         college.setEmail(email);
         college.setPasswordHash(passwordEncoder.encode(password));
-        college.setActive(true);
+        // Newly self-registered institutions must be reviewed by an AICTE admin.
+        college.setActive(false);
 
         // A newly registered institution starts with REAL, zeroed statistics.
         college.setApprovedIntake(parseIntOr(body.get("approvedIntake"), 0));
@@ -186,10 +206,13 @@ public class AuthController {
 
         collegeRepository.save(college);
 
-        Map<Object, Object> payload = new java.util.HashMap<>(sessionPayload(college));
-        payload.put("registered", true);
-        payload.put("message", "Institution registered successfully. Welcome to the APAAR verification network!");
-        return ResponseEntity.status(HttpStatus.CREATED).body(payload);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "success", true,
+                "registered", true,
+                "pendingApproval", true,
+                "collegeName", college.getName(),
+                "message", "Institution submitted for AICTE review. Portal access will be enabled after approval."
+        ));
     }
 
     @PostMapping("/logout")
@@ -213,6 +236,18 @@ public class AuthController {
 
     private String trimOrNull(String s) {
         return (s == null || s.trim().isEmpty()) ? null : s.trim();
+    }
+
+    private boolean isRateLimited(HttpServletRequest request, String action, int limit, Duration window) {
+        return !rateLimiter.allow(action + ":" + request.getRemoteAddr(), limit, window);
+    }
+
+    private ResponseEntity<Map<String, Object>> tooManyRequests() {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                "success", false,
+                "error", "RATE_LIMITED",
+                "message", "Too many attempts. Please wait and try again."
+        ));
     }
 
     private int parseIntOr(String s, int fallback) {
