@@ -2,7 +2,7 @@ databases:
   - name: apaar-verify-db
     databaseName: apaardb
     user: apaar
-    plan: 0.1c-256mb
+    plan: free
     region: oregon
 
 services:
