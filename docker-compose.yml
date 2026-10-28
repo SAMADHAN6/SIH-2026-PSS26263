@@ -8,6 +8,10 @@ services:
     container_name: apaar-backend
     ports:
       - "8085:8085"
+    environment:
+      - H2_PASSWORD=${H2_PASSWORD:-apaar_local_db}
+    volumes:
+      - apaar-data:/app/data
     restart: always
 
   frontend:
@@ -21,3 +25,6 @@ services:
     depends_on:
       - backend
     restart: always
+
+volumes:
+  apaar-data:

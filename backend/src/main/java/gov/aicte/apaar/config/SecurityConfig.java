@@ -68,8 +68,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:3000", "*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        // Allow local development origins plus any origin for public demo hosting.
+        // Mutations are protected by bearer tokens regardless of origin.
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost:*", "http://127.0.0.1:*", "https://*.onrender.com", "*"
+        ));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(false);
 
