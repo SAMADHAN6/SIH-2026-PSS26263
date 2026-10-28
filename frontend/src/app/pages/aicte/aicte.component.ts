@@ -140,6 +140,134 @@ import { I18nPipe } from '../../services/i18n.pipe';
         </p>
       </div>
 
+      <!-- ============ ADVANCED ANALYTICS (7 live analyses) ============ -->
+      <div class="analytics-section" *ngIf="summary?.funnel">
+        <div class="analytics-head">
+          <h3>📈 {{ 'aicte.analytics' | i18n }}</h3>
+          <p class="sub-text">{{ 'aicte.analyticsSub' | i18n }}</p>
+        </div>
+
+        <div class="analytics-grid">
+          <!-- 1. Verification Funnel -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.funnel' | i18n }}</h4>
+            <div class="funnel-row" *ngFor="let f of funnelRows">
+              <span class="funnel-label">{{ f.label }}</span>
+              <div class="funnel-track">
+                <div class="funnel-fill" [ngClass]="f.cls" [style.width.%]="f.pct"></div>
+              </div>
+              <span class="funnel-val">{{ formatNum(f.value) }}</span>
+            </div>
+          </div>
+
+          <!-- 2. Category mix (donut) -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.categoryMix' | i18n }}</h4>
+            <div class="donut-wrap">
+              <svg viewBox="0 0 120 120" class="donut-svg">
+                <g transform="translate(60,60)">
+                  <circle *ngFor="let seg of donutSegments" r="42" fill="none"
+                          [attr.stroke]="seg.color" [attr.stroke-width]="16"
+                          [attr.stroke-dasharray]="seg.dash"
+                          [attr.stroke-dashoffset]="seg.offset"
+                          transform="rotate(-90)" />
+                </g>
+                <text x="60" y="57" text-anchor="middle" class="donut-num">{{ formatNum(categoryTotal) }}</text>
+                <text x="60" y="71" text-anchor="middle" class="donut-cap">Records</text>
+              </svg>
+              <div class="donut-legend">
+                <span *ngFor="let seg of donutSegments" class="legend-item">
+                  <span class="legend-badge" [style.background]="seg.color"></span>
+                  {{ seg.label }} ({{ seg.value }})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Course distribution -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.courseDist' | i18n }}</h4>
+            <div class="hbar-row" *ngFor="let c of courseRows">
+              <span class="hbar-label" [title]="c.label">{{ c.short }}</span>
+              <div class="hbar-track"><div class="hbar-fill" [style.width.%]="c.pct"></div></div>
+              <span class="hbar-val">{{ c.value }}</span>
+            </div>
+          </div>
+
+          <!-- 4. Year-wise enrolment -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.yearDist' | i18n }}</h4>
+            <div class="mini-bars">
+              <div class="mini-bar-col" *ngFor="let y of yearRows">
+                <span class="mini-bar-val">{{ y.value }}</span>
+                <div class="mini-bar" [style.height.%]="y.pct"></div>
+                <span class="mini-bar-label">{{ y.label }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. State verification stack -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.stateStack' | i18n }}</h4>
+            <div class="stack-legend">
+              <span class="legend-item"><span class="legend-badge" style="background:#059669"></span> Verified</span>
+              <span class="legend-item"><span class="legend-badge" style="background:#F59E0B"></span> Pending</span>
+              <span class="legend-item"><span class="legend-badge" style="background:#DC2626"></span> Duplicate</span>
+            </div>
+            <div class="stack-rows">
+              <div class="stack-row" *ngFor="let s of stateStackRows">
+                <span class="stack-label">{{ s.state }}</span>
+                <div class="stack-track">
+                  <div class="stack-seg v" [style.width.%]="s.vPct" [title]="s.state + ' verified: ' + s.verified"></div>
+                  <div class="stack-seg p" [style.width.%]="s.pPct" [title]="s.state + ' pending: ' + s.pending"></div>
+                  <div class="stack-seg d" [style.width.%]="s.dPct" [title]="s.state + ' duplicate: ' + s.duplicate"></div>
+                </div>
+                <span class="stack-val">{{ s.total }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Quota utilisation -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.quota' | i18n }}</h4>
+            <div class="quota-rows">
+              <div class="quota-row" *ngFor="let q of quotaRows">
+                <span class="quota-label">{{ q.label }}</span>
+                <div class="quota-track"><div class="quota-fill" [ngClass]="q.cls" [style.width.%]="q.pct"></div></div>
+                <span class="quota-val">{{ q.value }}</span>
+              </div>
+            </div>
+            <p class="panel-note">TFW is supernumerary (additional to sanctioned intake); NRI / FN are separate statutory quotas.</p>
+          </div>
+
+          <!-- 7. ABC credits progression -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.creditsProg' | i18n }}</h4>
+            <div class="credits-line">
+              <div class="credits-col" *ngFor="let c of creditsRows">
+                <span class="credits-val">{{ c.avg }}</span>
+                <div class="credits-bar" [style.height.%]="c.pct"></div>
+                <span class="credits-label">{{ c.label }}</span>
+              </div>
+            </div>
+            <p class="panel-note">Average ABC credits banked per academic year (≈30 Cr per year as per UGC ABC norms).</p>
+          </div>
+
+          <!-- 8. Intake compliance watchlist -->
+          <div class="gov-card viz-card">
+            <h4>🚨 {{ 'aicte.overIntakeWatch' | i18n }}</h4>
+            <div *ngIf="overIntakeRows.length > 0">
+              <div class="watch-row" *ngFor="let w of overIntakeRows">
+                <span class="watch-code font-mono">{{ w.code }}</span>
+                <span class="watch-name" [title]="w.name">{{ w.name }}</span>
+                <span class="watch-var">+{{ w.variance }}</span>
+              </div>
+            </div>
+            <p *ngIf="overIntakeRows.length === 0" class="panel-note">All institutions are within sanctioned intake. National registry compliant.</p>
+          </div>
+        </div>
+      </div>
+
       <!-- Master College Registry Table -->
       <div class="table-card gov-card">
         <div class="table-header">
@@ -426,6 +554,78 @@ import { I18nPipe } from '../../services/i18n.pipe';
     .drilldown-table-wrap { overflow-x: auto; }
     .row-avatar { margin-right: 6px; vertical-align: middle; }
     .no-records { text-align: center; color: #94a3b8; padding: 24px; }
+
+    /* ============ Advanced Analytics (7 analyses) ============ */
+    .analytics-section { margin: 22px 0; }
+    .analytics-head { margin-bottom: 12px; }
+    .analytics-head h3 { margin: 0 0 2px; color: #0F2C61; font-size: 17px; }
+    .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+    .viz-card { padding: 16px; }
+    .viz-card h4 { margin: 0 0 12px; font-size: 13px; color: #0F2C61; font-weight: 800; }
+    .panel-note { margin: 10px 0 0; font-size: 10px; color: #94a3b8; }
+
+    .funnel-row { display: grid; grid-template-columns: 110px 1fr 52px; align-items: center; gap: 8px; margin-bottom: 9px; }
+    .funnel-label { font-size: 11px; color: #475569; font-weight: 600; }
+    .funnel-track { background: #f1f5f9; border-radius: 6px; height: 16px; overflow: hidden; }
+    .funnel-fill { height: 100%; border-radius: 6px; min-width: 2px; transition: width 0.4s; }
+    .f-total { background: #0F2C61; }
+    .f-verified { background: #059669; }
+    .f-pending { background: #F59E0B; }
+    .f-duplicate { background: #DC2626; }
+    .f-rejected { background: #94a3b8; }
+    .funnel-val { font-size: 12px; font-weight: 800; color: #0F2C61; text-align: right; }
+
+    .donut-wrap { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .donut-svg { width: 128px; height: 128px; flex-shrink: 0; }
+    .donut-num { font-size: 15px; font-weight: 800; fill: #0F2C61; }
+    .donut-cap { font-size: 7px; fill: #94a3b8; text-transform: uppercase; }
+    .donut-legend { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: #475569; }
+
+    .hbar-row { display: grid; grid-template-columns: 120px 1fr 36px; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .hbar-label { font-size: 10px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hbar-track { background: #f1f5f9; height: 12px; border-radius: 6px; overflow: hidden; }
+    .hbar-fill { height: 100%; background: linear-gradient(90deg, #0F2C61, #1A448A); border-radius: 6px; }
+    .hbar-val { font-size: 11px; font-weight: 700; color: #0F2C61; text-align: right; }
+
+    .mini-bars { display: flex; justify-content: space-around; align-items: flex-end; height: 130px; padding-top: 18px; }
+    .mini-bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 56px; }
+    .mini-bar-val { font-size: 11px; font-weight: 800; color: #0F2C61; margin-bottom: 4px; }
+    .mini-bar { width: 34px; background: linear-gradient(180deg, #1A448A, #0F2C61); border-radius: 6px 6px 0 0; }
+    .mini-bar-label { margin-top: 6px; font-size: 10px; color: #64748b; }
+
+    .stack-legend { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+    .stack-rows { display: flex; flex-direction: column; gap: 7px; }
+    .stack-row { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 8px; }
+    .stack-label { font-size: 10px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stack-track { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #f1f5f9; }
+    .stack-seg { height: 100%; }
+    .stack-seg.v { background: #059669; }
+    .stack-seg.p { background: #F59E0B; }
+    .stack-seg.d { background: #DC2626; }
+    .stack-val { font-size: 11px; font-weight: 700; color: #0F2C61; text-align: right; }
+
+    .quota-rows { display: flex; flex-direction: column; gap: 10px; }
+    .quota-row { display: grid; grid-template-columns: 130px 1fr 40px; align-items: center; gap: 8px; }
+    .quota-label { font-size: 11px; color: #475569; }
+    .quota-track { background: #f1f5f9; height: 12px; border-radius: 6px; overflow: hidden; }
+    .quota-fill { height: 100%; border-radius: 6px; min-width: 2px; }
+    .q-tfw { background: #6D28D9; }
+    .q-ews { background: #0E7490; }
+    .q-nri { background: #D97706; }
+    .q-fn { background: #BE123D; }
+    .quota-val { font-size: 12px; font-weight: 800; color: #0F2C61; text-align: right; }
+
+    .credits-line { display: flex; justify-content: space-around; align-items: flex-end; height: 120px; padding-top: 16px; }
+    .credits-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+    .credits-val { font-size: 11px; font-weight: 800; color: #059669; margin-bottom: 4px; }
+    .credits-bar { width: 42px; background: linear-gradient(180deg, #10b981, #059669); border-radius: 6px 6px 0 0; }
+    .credits-label { margin-top: 6px; font-size: 10px; color: #64748b; }
+
+    .watch-row { display: grid; grid-template-columns: 108px 1fr 48px; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px dashed #f1f5f9; }
+    .watch-row:last-child { border-bottom: none; }
+    .watch-code { font-size: 10px; color: #475569; }
+    .watch-name { font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .watch-var { font-size: 12px; font-weight: 800; color: #DC2626; text-align: right; background: #fef2f2; border-radius: 6px; padding: 2px 6px; }
   `]
 })
 export class AicteComponent implements OnInit {
@@ -571,6 +771,109 @@ export class AicteComponent implements OnInit {
 
   pct(part: number, total: number): string {
     return total > 0 ? (part / total * 100).toFixed(1) : '0.0';
+  }
+
+  // ---------------- Advanced analytics accessors (7 live analyses) ----------------
+
+  get funnelRows(): Array<{ label: string; value: number; pct: number; cls: string }> {
+    const f = this.summary?.funnel;
+    if (!f) return [];
+    const total = Math.max(1, f.total || 1);
+    return [
+      { label: 'Total Enrolled', value: f.total || 0, pct: 100, cls: 'f-total' },
+      { label: 'Verified', value: f.verified || 0, pct: (f.verified || 0) / total * 100, cls: 'f-verified' },
+      { label: 'Pending', value: f.pending || 0, pct: (f.pending || 0) / total * 100, cls: 'f-pending' },
+      { label: 'Duplicate Flagged', value: f.duplicate || 0, pct: (f.duplicate || 0) / total * 100, cls: 'f-duplicate' },
+      { label: 'Rejected', value: f.rejected || 0, pct: (f.rejected || 0) / total * 100, cls: 'f-rejected' }
+    ];
+  }
+
+  get donutSegments(): Array<{ label: string; value: number; color: string; dash: string; offset: number }> {
+    const cw: Record<string, number> | undefined = this.summary?.categoryWise;
+    if (!cw) return [];
+    const palette = ['#0F2C61', '#059669', '#F59E0B', '#6D28D9', '#0E7490', '#BE123D', '#475569', '#84CC16', '#D97706'];
+    const entries = Object.entries(cw);
+    const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+    const C = 2 * Math.PI * 42;
+    let acc = 0;
+    return entries.map(([label, value], i) => {
+      const frac = value / total;
+      const dash = `${frac * C} ${C - frac * C}`;
+      const offset = -acc * C;
+      acc += frac;
+      return { label, value, color: palette[i % palette.length], dash, offset };
+    });
+  }
+
+  get categoryTotal(): number {
+    const cw: Record<string, number> | undefined = this.summary?.categoryWise;
+    return cw ? Object.values(cw).reduce((s, v) => s + v, 0) : 0;
+  }
+
+  get courseRows(): Array<{ label: string; short: string; value: number; pct: number }> {
+    const cw: Record<string, number> | undefined = this.summary?.courseWise;
+    if (!cw) return [];
+    const entries = Object.entries(cw);
+    const max = Math.max(1, ...entries.map(([, v]) => v));
+    return entries.map(([label, value]) => ({
+      label,
+      short: label.replace('B.Tech ', '').replace('Computer Science & Engineering', 'CSE').replace('(Data Science)', 'DS'),
+      value,
+      pct: value / max * 100
+    }));
+  }
+
+  get yearRows(): Array<{ label: string; value: number; pct: number }> {
+    const yw: Record<string, number> | undefined = this.summary?.yearWise;
+    if (!yw) return [];
+    const entries = Object.entries(yw);
+    const max = Math.max(1, ...entries.map(([, v]) => v));
+    return entries.map(([label, value]) => ({ label, value, pct: Math.max(4, value / max * 100) }));
+  }
+
+  get stateStackRows(): Array<{ state: string; verified: number; pending: number; duplicate: number; total: number; vPct: number; pPct: number; dPct: number }> {
+    const sv: Record<string, Record<string, number>> | undefined = this.summary?.stateVerification;
+    if (!sv) return [];
+    return Object.entries(sv).map(([state, buckets]) => {
+      const verified = buckets['verified'] || 0;
+      const pending = buckets['pending'] || 0;
+      const duplicate = (buckets['duplicate'] || 0) + (buckets['rejected'] || 0);
+      const total = verified + pending + duplicate || 1;
+      return {
+        state, verified, pending, duplicate, total,
+        vPct: verified / total * 100,
+        pPct: pending / total * 100,
+        dPct: duplicate / total * 100
+      };
+    }).sort((a, b) => b.total - a.total);
+  }
+
+  get quotaRows(): Array<{ label: string; value: number; pct: number; cls: string }> {
+    const q = this.summary?.quota;
+    if (!q) return [];
+    const total = Math.max(1, this.summary?.funnel?.total || 1);
+    return [
+      { label: 'TFW (Supernumerary)', value: q.tfw || 0, pct: Math.min(100, (q.tfw || 0) / total * 100 * 3), cls: 'q-tfw' },
+      { label: 'EWS', value: q.ews || 0, pct: (q.ews || 0) / total * 100, cls: 'q-ews' },
+      { label: 'NRI', value: q.nri || 0, pct: Math.min(100, (q.nri || 0) / total * 100 * 3), cls: 'q-nri' },
+      { label: 'Foreign National', value: q.fn || 0, pct: Math.min(100, (q.fn || 0) / total * 100 * 3), cls: 'q-fn' }
+    ];
+  }
+
+  get creditsRows(): Array<{ label: string; avg: number; pct: number }> {
+    const cb: Record<string, { avgCredits: number; students: number }> | undefined = this.summary?.creditsByYear;
+    if (!cb) return [];
+    const entries = Object.entries(cb);
+    const max = Math.max(1, ...entries.map(([, v]) => v.avgCredits || 0));
+    return entries.map(([label, v]) => ({
+      label: label.replace('Year ', 'Y'),
+      avg: v.avgCredits,
+      pct: Math.max(6, (v.avgCredits || 0) / max * 100)
+    }));
+  }
+
+  get overIntakeRows(): Array<{ code: string; name: string; state: string; variance: number }> {
+    return (this.summary?.overIntake || []) as Array<{ code: string; name: string; state: string; variance: number }>;
   }
 
   filterColleges() {

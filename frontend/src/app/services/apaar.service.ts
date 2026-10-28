@@ -132,6 +132,10 @@ export class ApaarService {
     );
   }
 
+  getCollegeAlerts(collegeId: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/college/alerts?collegeId=${encodeURIComponent(collegeId)}`, this.authHeaders());
+  }
+
   getStudents(params?: Record<string, string | number>): Observable<any> {
     let url = `${this.baseUrl}/college/students`;
     if (params && Object.keys(params).length) {
@@ -153,7 +157,11 @@ export class ApaarService {
   // ---------------- AICTE portal ----------------
 
   getNationalSummary(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/aicte/summary`);
+    return this.http.get(`${this.baseUrl}/aicte/summary`, this.authHeaders());
+  }
+
+  getPublicNationalSummary(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/aicte/public-summary`);
   }
 
   getAllColleges(): Observable<any> {

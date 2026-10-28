@@ -300,6 +300,30 @@ import { I18nPipe } from '../../services/i18n.pipe';
           </p>
         </div>
 
+        <!-- Institution Anomaly & Action Console (this college's own alerts) -->
+        <div class="alerts-console gov-card" *ngIf="collegeAlerts">
+          <div class="ac-header">
+            <h3>🔔 Anomaly & Action Console <span class="ac-scope">— {{ college?.name }}</span></h3>
+            <div class="ac-badges">
+              <span class="ac-badge red">{{ collegeAlerts.duplicates?.length || 0 }} Duplicate Alerts</span>
+              <span class="ac-badge amber">{{ collegeAlerts.pendingQueue || 0 }} Pending Queue</span>
+              <span class="ac-badge" [ngClass]="collegeAlerts.intake?.over ? 'red' : 'green'">
+                Intake: {{ collegeAlerts.intake?.actual }} / {{ collegeAlerts.intake?.approved }}
+                ({{ collegeAlerts.intake?.over ? '+' + collegeAlerts.intake?.variance + ' OVER' : 'Compliant' }})
+              </span>
+            </div>
+          </div>
+          <div class="ac-body" *ngIf="(collegeAlerts.recentActions || []).length > 0">
+            <span class="ac-actions-label">Recent actions on your records:</span>
+            <div class="ac-action" *ngFor="let log of collegeAlerts.recentActions">
+              <span class="ac-action-time">{{ log.timestamp | date:'short' }}</span>
+              <span class="ac-action-what"><strong>{{ log.action }}</strong> — {{ log.studentName }} ({{ log.apaarId }})</span>
+              <span class="ac-action-actor">by {{ log.actor }}</span>
+            </div>
+          </div>
+          <p class="ac-note" *ngIf="(collegeAlerts.recentActions || []).length === 0">No recent actions recorded on this institution's records.</p>
+        </div>
+
         <!-- Cross-Institution Duplicate Alert Section -->
         <div class="duplicate-alert-section gov-card" *ngIf="duplicates.length > 0">
           <div class="dup-header">
@@ -1035,6 +1059,7 @@ export class CollegeComponent implements OnInit {
 
   // College Data
   college: College | null = null;
+  collegeAlerts: any = null;
   students: Student[] = [];
   filteredStudents: Student[] = [];
   duplicates: Student[] = [];
@@ -1234,6 +1259,7 @@ export class CollegeComponent implements OnInit {
     this.students = [];
     this.filteredStudents = [];
     this.duplicates = [];
+    this.collegeAlerts = null;
     this.loginError = '';
     this.regNotice = '';
   }
@@ -1253,6 +1279,14 @@ export class CollegeComponent implements OnInit {
       error: () => {
         this.ui.showError('Live institutional statistics could not be loaded — the AICTE gateway is unreachable. Start the backend server and refresh.');
       }
+    });
+
+    this.apaarService.getCollegeAlerts(collegeId).subscribe({
+      next: (res) => {
+        this.collegeAlerts = res?.success ? res : null;
+        this.cdr.detectChanges();
+      },
+      error: () => { this.collegeAlerts = null; }
     });
 
     this.apaarService.getStudents({ collegeId }).subscribe({

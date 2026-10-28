@@ -34,8 +34,8 @@ public class SecurityConfig {
             .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable)) // for H2 console
             .authorizeHttpRequests(auth -> auth
                 // These endpoints perform their own X-Auth-Token/role checks in the controller.
-                .requestMatchers(HttpMethod.GET, "/api/verify/*", "/api/aicte/summary",
-                        "/api/college/stats", "/api/college/students", "/api/aicte/colleges",
+                .requestMatchers(HttpMethod.GET, "/api/verify/*", "/api/aicte/summary", "/api/aicte/public-summary",
+                        "/api/college/stats", "/api/college/students", "/api/college/alerts", "/api/aicte/colleges",
                         "/api/aicte/duplicate-alerts", "/api/aicte/logs", "/api/aicte/export-excel").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/verify/*/status", "/api/college/bulk-upload",
                         "/api/auth/college-login", "/api/auth/google-login", "/api/auth/admin-login",

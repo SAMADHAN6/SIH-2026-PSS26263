@@ -217,7 +217,7 @@ export class LandingComponent implements OnInit {
   constructor(private router: Router, private apaarService: ApaarService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
-    this.apaarService.getNationalSummary().subscribe({
+    this.apaarService.getPublicNationalSummary().subscribe({
       next: (res) => {
         if (res && res.success !== false && res.enrolled !== undefined) {
           this.summary = res;

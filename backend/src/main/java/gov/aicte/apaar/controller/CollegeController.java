@@ -4,6 +4,7 @@ import gov.aicte.apaar.model.College;
 import gov.aicte.apaar.model.Student;
 import gov.aicte.apaar.repository.CollegeRepository;
 import gov.aicte.apaar.repository.StudentRepository;
+import gov.aicte.apaar.repository.VerificationLogRepository;
 import gov.aicte.apaar.service.TokenService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,13 +26,70 @@ public class CollegeController {
     private final StudentRepository studentRepository;
     private final CollegeRepository collegeRepository;
     private final TokenService tokenService;
+    private final VerificationLogRepository logRepository;
 
     public CollegeController(StudentRepository studentRepository,
                              CollegeRepository collegeRepository,
-                             TokenService tokenService) {
+                             TokenService tokenService,
+                             VerificationLogRepository logRepository) {
         this.studentRepository = studentRepository;
         this.collegeRepository = collegeRepository;
         this.tokenService = tokenService;
+        this.logRepository = logRepository;
+    }
+
+    /** Tenant-scoped alerts for duplicate records, intake variance and recent activity. */
+    @GetMapping("/alerts")
+    public ResponseEntity<?> getCollegeAlerts(
+            @RequestParam(required = false) String collegeId,
+            @RequestHeader(value = "X-Auth-Token", required = false) String token) {
+        TokenService.TokenInfo session = tokenService.validate(token).orElse(null);
+        String scopedId = session == null ? null : resolveScopedCollegeId(session, collegeId);
+        if (session == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false, "error", "UNAUTHORIZED",
+                    "message", "Sign in to view institution alerts."));
+        }
+        if (scopedId == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "success", false, "error", "FORBIDDEN",
+                    "message", "Only institution administrators and AICTE administrators can view these alerts."));
+        }
+
+        College college = collegeRepository.findById(scopedId).orElse(null);
+        if (college == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "success", false, "error", "COLLEGE_NOT_FOUND"));
+        }
+        List<Student> roster = studentRepository.findByCollegeIdOrderByNameAsc(scopedId);
+        List<Map<String, Object>> duplicates = roster.stream()
+                .filter(s -> "duplicate".equalsIgnoreCase(s.getStatus()))
+                .map(s -> Map.<String, Object>of(
+                        "apaarId", s.getApaarId(), "name", s.getName(),
+                        "conflictCollege", s.getDuplicateCollegeName() == null ? "External institute" : s.getDuplicateCollegeName(),
+                        "reason", s.getFlagReason() == null ? "Cross-institution enrolment conflict" : s.getFlagReason()))
+                .toList();
+        long pendingQueue = roster.stream().filter(s -> "pending".equalsIgnoreCase(s.getStatus())).count();
+        java.util.Set<String> ownApaarIds = roster.stream().map(Student::getApaarId).collect(Collectors.toSet());
+        List<Map<String, Object>> recentActions = logRepository.findTop100ByOrderByTimestampDesc().stream()
+                .filter(log -> ownApaarIds.contains(log.getApaarId()))
+                .limit(10)
+                .map(log -> {
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("timestamp", log.getTimestamp());
+                    row.put("apaarId", log.getApaarId());
+                    row.put("studentName", log.getStudentName());
+                    row.put("action", log.getAction());
+                    return row;
+                }).toList();
+
+        Map<String, Object> intake = new java.util.LinkedHashMap<>();
+        intake.put("approved", college.getApprovedIntake());
+        intake.put("actual", college.getActualEnrolment());
+        intake.put("variance", college.getActualEnrolment() - college.getApprovedIntake());
+        intake.put("over", college.getActualEnrolment() > college.getApprovedIntake());
+        return ResponseEntity.ok(Map.of("success", true, "intake", intake,
+                "duplicates", duplicates, "pendingQueue", pendingQueue, "recentActions", recentActions));
     }
 
     @GetMapping("/stats")

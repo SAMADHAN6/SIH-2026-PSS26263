@@ -79,6 +79,16 @@ const UI: Dict = {
   'aicte.chart.title': { en: 'State-Wise APAAR Verification Progress', hi: 'राज्यवार APAAR सत्यापन प्रगति' },
   'aicte.table.title': { en: 'College-Wise Intake Compliance Master Table', hi: 'महाविद्यालयवार सीट अनुपालन मुख्य तालिका' },
   'aicte.alerts': { en: 'Duplicate Anomaly Alerts', hi: 'डुप्लिकेट असंगति चेतावनी' },
+  'aicte.analytics': { en: 'Advanced Analytics', hi: 'उन्नत विश्लेषण' },
+  'aicte.analyticsSub': { en: 'Aggregate analyses computed from the national registry', hi: 'राष्ट्रीय रजिस्टर के समेकित विश्लेषण' },
+  'aicte.funnel': { en: 'Verification Funnel', hi: 'सत्यापन फ़नल' },
+  'aicte.categoryMix': { en: 'Admission Category Mix', hi: 'प्रवेश श्रेणी संरचना' },
+  'aicte.courseDist': { en: 'Course-wise Distribution', hi: 'पाठ्यक्रम-वार वितरण' },
+  'aicte.yearDist': { en: 'Year-wise Enrolment', hi: 'वर्ष-वार नामांकन' },
+  'aicte.stateStack': { en: 'State-wise Verification Stack', hi: 'राज्य-वार सत्यापन' },
+  'aicte.quota': { en: 'Quota Utilisation', hi: 'कोटा उपयोग' },
+  'aicte.creditsProg': { en: 'ABC Credits Progression', hi: 'ABC क्रेडिट प्रगति' },
+  'aicte.overIntakeWatch': { en: 'Intake Compliance Watchlist', hi: 'इंटेक अनुपालन सूची' },
   'aicte.ledger': { en: 'Immutable System Audit Ledger', hi: 'अपरिवर्तनीय सिस्टम ऑडिट लेजर' },
 
   // Footer

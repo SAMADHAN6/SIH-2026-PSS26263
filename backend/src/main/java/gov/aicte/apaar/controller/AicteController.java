@@ -49,7 +49,11 @@ public class AicteController {
      * are computed from the actual database (no hardcoded numbers).
      */
     @GetMapping("/summary")
-    public ResponseEntity<?> getNationalSummary() {
+    public ResponseEntity<?> getNationalSummary(
+            @RequestHeader(value = "X-Auth-Token", required = false) String token) {
+        if (!isSuperAdmin(token)) {
+            return unauthorized();
+        }
         List<College> colleges = collegeRepository.findByActiveTrueOrderByNameAsc();
 
         int institutions = colleges.size();
@@ -81,6 +85,81 @@ public class AicteController {
                 .sorted((a, b) -> Integer.compare((int) b.get("total"), (int) a.get("total")))
                 .collect(Collectors.toList());
 
+        // ---------------- Advanced analytics (computed from the live registry) ----------------
+        List<Student> allStudents = studentRepository.findAllByOrderByNameAsc();
+
+        // 1. Verification funnel
+        Map<String, Object> funnel = new LinkedHashMap<>();
+        funnel.put("total", allStudents.size());
+        funnel.put("verified", allStudents.stream().filter(s -> "verified".equalsIgnoreCase(s.getStatus())).count());
+        funnel.put("pending", allStudents.stream().filter(s -> "pending".equalsIgnoreCase(s.getStatus())).count());
+        funnel.put("duplicate", allStudents.stream().filter(s -> "duplicate".equalsIgnoreCase(s.getStatus())).count());
+        funnel.put("rejected", allStudents.stream().filter(s -> "rejected".equalsIgnoreCase(s.getStatus())).count());
+
+        // 2. Category mix
+        Map<String, Long> categoryWise = new LinkedHashMap<>();
+        allStudents.stream().filter(s -> s.getCategory() != null)
+                .collect(Collectors.groupingBy(Student::getCategory, Collectors.counting()))
+                .entrySet().stream().sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .forEach(e -> categoryWise.put(e.getKey(), e.getValue()));
+
+        // 3. Course distribution (top 8)
+        Map<String, Long> courseWise = new LinkedHashMap<>();
+        allStudents.stream().filter(s -> s.getCourse() != null)
+                .collect(Collectors.groupingBy(Student::getCourse, Collectors.counting()))
+                .entrySet().stream().sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(8)
+                .forEach(e -> courseWise.put(e.getKey(), e.getValue()));
+
+        // 4. Year-wise enrolment
+        Map<String, Long> yearWise = new LinkedHashMap<>();
+        for (int y = 1; y <= 4; y++) {
+            final int yy = y;
+            yearWise.put("Year " + y, allStudents.stream().filter(s -> s.getAcademicYear() != null && s.getAcademicYear() == yy).count());
+        }
+
+        // 5. State-wise verification stack (verified / pending / duplicate)
+        Map<String, Map<String, Integer>> stateVerification = new LinkedHashMap<>();
+        for (Student s : allStudents) {
+            if (s.getState() == null) continue;
+            Map<String, Integer> bucket = stateVerification.computeIfAbsent(s.getState(), k -> new LinkedHashMap<>());
+            String status = s.getStatus() == null ? "pending" : s.getStatus().toLowerCase();
+            bucket.merge(status, 1, Integer::sum);
+        }
+
+        // 6. Quota utilisation (national)
+        Map<String, Object> quota = new LinkedHashMap<>();
+        quota.put("tfw", allStudents.stream().filter(s -> s.getCategory() != null && s.getCategory().toLowerCase().contains("tfw")).count());
+        quota.put("nri", allStudents.stream().filter(s -> "NRI".equalsIgnoreCase(s.getCategory())).count());
+        quota.put("fn", allStudents.stream().filter(s -> "Foreign National".equalsIgnoreCase(s.getCategory())).count());
+        quota.put("ews", allStudents.stream().filter(s -> "EWS".equalsIgnoreCase(s.getCategory())).count());
+
+        // 7. Credits progression (average banked credits per academic year)
+        Map<String, Object> creditsByYear = new LinkedHashMap<>();
+        for (int y = 1; y <= 4; y++) {
+            final int yy = y;
+            List<Student> yr = allStudents.stream().filter(s -> s.getAcademicYear() != null && s.getAcademicYear() == yy).toList();
+            double avg = yr.stream().mapToInt(s -> s.getAbcCredits() == null ? 0 : s.getAbcCredits()).average().orElse(0);
+            creditsByYear.put("Year " + y, Map.of("avgCredits", Math.round(avg * 10.0) / 10.0, "students", yr.size()));
+        }
+
+        // 8. Intake compliance watchlist
+        List<Map<String, Object>> overIntake = colleges.stream()
+                .filter(c -> nz(c.getActualEnrolment()) > nz(c.getApprovedIntake()))
+                .map(c -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("code", c.getCode());
+                    m.put("name", c.getName());
+                    m.put("state", c.getState());
+                    m.put("approved", c.getApprovedIntake());
+                    m.put("actual", c.getActualEnrolment());
+                    m.put("variance", nz(c.getActualEnrolment()) - nz(c.getApprovedIntake()));
+                    return m;
+                })
+                .sorted((a, b) -> Integer.compare((int) b.get("variance"), (int) a.get("variance")))
+                .collect(Collectors.toList());
+
+
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("success", true);
         summary.put("institutions", institutions);
@@ -94,8 +173,16 @@ public class AicteController {
         summary.put("fn", fn);
         summary.put("verifiedPct", enrolled > 0 ? Math.round(verified * 1000.0 / enrolled) / 10.0 : 0);
         summary.put("stateWise", stateWise);
-        // Identifiable duplicate alerts are available only from the admin-only endpoint.
+        // Identifiable duplicate alerts remain on the separately protected endpoint.
         summary.put("duplicateFeed", List.of());
+        summary.put("funnel", funnel);
+        summary.put("categoryWise", categoryWise);
+        summary.put("courseWise", courseWise);
+        summary.put("yearWise", yearWise);
+        summary.put("stateVerification", stateVerification);
+        summary.put("quota", quota);
+        summary.put("creditsByYear", creditsByYear);
+        summary.put("overIntake", overIntake);
         summary.put("generatedAt", LocalDateTime.now().toString());
 
         return ResponseEntity.ok(summary);
@@ -224,5 +311,28 @@ public class AicteController {
 
     private int nz(Integer v) {
         return v == null ? 0 : v;
+    }
+
+    /** Public landing-page KPIs only; no records, institution names, or watchlists. */
+    @GetMapping("/public-summary")
+    public ResponseEntity<?> getPublicSummary() {
+        List<College> colleges = collegeRepository.findByActiveTrueOrderByNameAsc();
+        int enrolled = colleges.stream().mapToInt(c -> nz(c.getActualEnrolment())).sum();
+        int verified = colleges.stream().mapToInt(c -> nz(c.getVerifiedCount())).sum();
+        Map<String, List<College>> byState = colleges.stream().filter(c -> c.getState() != null)
+                .collect(Collectors.groupingBy(College::getState, LinkedHashMap::new, Collectors.toList()));
+        List<Map<String, Object>> stateWise = byState.entrySet().stream().map(entry -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("state", entry.getKey());
+            row.put("total", entry.getValue().stream().mapToInt(c -> nz(c.getActualEnrolment())).sum());
+            row.put("institutions", entry.getValue().size());
+            return row;
+        }).toList();
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "institutions", colleges.size(),
+                "enrolled", enrolled,
+                "verifiedPct", enrolled > 0 ? Math.round(verified * 1000.0 / enrolled) / 10.0 : 0,
+                "stateWise", stateWise));
     }
 }
