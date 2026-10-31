@@ -1,6 +1,6 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist/frontend/browser",
+  "outputDirectory": "dist/frontend",
   "framework": "angular",
   "rewrites": [
     { "source": "/((?!assets|favicon\\.ico).*)", "destination": "/index.html" }
@@ -14,3 +14,4 @@
     }
   ]
 }
+
