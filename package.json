@@ -1,0 +1,16 @@
+{
+  "name": "apaar-verify-platform",
+  "version": "1.0.0",
+  "description": "AICTE APAAR ID-Based Student Data Management Platform",
+  "scripts": {
+    "dev": "npm --prefix frontend start",
+    "start": "npm --prefix frontend start",
+    "frontend": "npm --prefix frontend start",
+    "backend": "cd backend && .\\mvnw.cmd spring-boot:run",
+    "backend:postgres": "cd backend && .\\mvnw.cmd spring-boot:run",
+    "backend:jar": "java -jar backend/target/apaar-verify-backend-1.0.0.jar",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:backend": "cd backend && .\\mvnw.cmd package -DskipTests",
+    "build": "npm run build:backend && npm run build:frontend"
+  }
+}

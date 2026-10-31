@@ -1,6 +1,20 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: apaar-postgres
+    environment:
+      POSTGRES_DB: apaardb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database/apaar_postgres_dataset.sql:/docker-entrypoint-initdb.d/01-init.sql
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
   backend:
     build:
       context: ./backend
@@ -8,6 +22,13 @@ services:
     container_name: apaar-backend
     ports:
       - "8085:8085"
+    environment:
+      - SPRING_PROFILES_ACTIVE=postgres
+      - DB_URL=jdbc:postgresql://postgres:5432/apaardb
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+    depends_on:
+      - postgres
     restart: always
 
   frontend:
@@ -21,3 +42,6 @@ services:
     depends_on:
       - backend
     restart: always
+
+volumes:
+  pgdata:

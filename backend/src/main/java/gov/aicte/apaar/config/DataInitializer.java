@@ -30,6 +30,9 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        if (collegeRepository.count() > 0 || studentRepository.count() > 0) {
+            return;
+        }
         // Seed Colleges
         List<College> colleges = List.of(
                 new College("COL001", "Delhi Institute of Engineering & Technology", "AICTE-DL-0012",
@@ -124,3 +127,4 @@ public class DataInitializer implements CommandLineRunner {
                 "DUPLICATE_FLAGGED", "system_aicte_risk_engine", "AICTE_SUPER_ADMIN", "164.100.158.4"));
     }
 }
+

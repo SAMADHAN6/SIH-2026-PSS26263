@@ -1,0 +1,11 @@
+{
+  "name": "apaar-verify-backend",
+  "version": "1.0.0",
+  "description": "AICTE APAAR ID-Based Student Data Management Platform Backend",
+  "scripts": {
+    "start": ".\\mvnw.cmd spring-boot:run",
+    "dev": ".\\mvnw.cmd spring-boot:run",
+    "backend": ".\\mvnw.cmd spring-boot:run",
+    "backend:postgres": ".\\mvnw.cmd spring-boot:run"
+  }
+}
