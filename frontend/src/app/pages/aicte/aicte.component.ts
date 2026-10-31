@@ -1,30 +1,65 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApaarService, College } from '../../services/apaar.service';
+import { ApaarService, College, Student } from '../../services/apaar.service';
+import { SessionService } from '../../services/session.service';
+import { UiStateService } from '../../services/ui-state.service';
+import { I18nPipe } from '../../services/i18n.pipe';
 
 @Component({
   selector: 'app-aicte',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, I18nPipe],
   template: `
     <div class="aicte-container">
+
+      <!-- ============ ADMIN LOGIN GATE ============ -->
+      <div *ngIf="!isAdminAuthenticated" class="admin-login-wrapper">
+        <div class="admin-login-card gov-card">
+          <div class="login-emblem-wrap">
+            <span class="login-emblem">🛡️</span>
+          </div>
+          <h2>{{ 'aicte.adminLogin' | i18n }}</h2>
+          <p class="sub-text">AICTE Regulation Bureau • National Monitoring Portal • Authorised Personnel Only</p>
+
+          <form (ngSubmit)="adminLogin()" class="admin-login-form">
+            <div class="field">
+              <label>OFFICIAL ADMINISTRATOR EMAIL</label>
+              <input type="email" [(ngModel)]="adminEmail" name="adminEmail" class="text-input" placeholder="admin@aicte.gov.in" required />
+            </div>
+            <div class="field">
+              <label>PASSWORD</label>
+              <input type="password" [(ngModel)]="adminPassword" name="adminPassword" class="text-input" placeholder="••••••••" required />
+            </div>
+
+            <div *ngIf="adminLoginError" class="login-err">⚠️ {{ adminLoginError }}</div>
+
+            <button type="submit" class="sign-in-btn" [disabled]="authBusy">
+              {{ authBusy ? 'Authenticating...' : 'Sign In to National Dashboard' }}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ============ DASHBOARD ============ -->
+      <div *ngIf="isAdminAuthenticated">
       <div class="header-card gov-card">
         <div class="header-left">
           <div class="avatar-badge">🛡️</div>
           <div>
-            <h1>AICTE Central Super Admin Dashboard</h1>
-            <p>Department of Higher Education • AICTE Regulation Bureau • National Monitoring Portal</p>
+            <h1>{{ 'aicte.title' | i18n }}</h1>
+            <p>Department of Higher Education • AICTE Regulation Bureau • Signed in as {{ adminEmail }}</p>
           </div>
         </div>
 
         <div class="header-actions">
           <button (click)="downloadExcel()" class="gov-btn-saffron">
-            📊 Export National Compliance Report (.xlsx)
+            📊 {{ 'aicte.exportExcel' | i18n }}
           </button>
           <button (click)="printReport()" class="gov-btn-primary">
-            🖨️ Export PDF Report
+            🖨️ {{ 'aicte.exportPdf' | i18n }}
           </button>
+          <button (click)="adminLogout()" class="logout-btn">Logout</button>
         </div>
       </div>
 
@@ -32,86 +67,203 @@ import { ApaarService, College } from '../../services/apaar.service';
         {{ exportToast }}
       </div>
 
-      <!-- National KPI Cards -->
+      <!-- National KPI Cards (live from the database) -->
       <div class="kpi-grid">
         <div class="kpi-card gov-card">
-          <span>APPROVED INSTITUTIONS</span>
-          <h2>9,840</h2>
-          <small class="text-green">All 28 States & UTs Active</small>
+          <span>{{ 'aicte.kpi.institutions' | i18n }}</span>
+          <h2>{{ formatNum(summary?.institutions) }}</h2>
+          <small class="text-green">{{ summary?.stateWise?.length || 0 }} States & UTs Active</small>
         </div>
         <div class="kpi-card gov-card">
-          <span>NATIONAL ENROLMENTS</span>
-          <h2 class="text-blue">34.6 L</h2>
-          <small class="text-amber">Sanctioned: 34.2 L (+1.1%)</small>
+          <span>{{ 'aicte.kpi.enrolled' | i18n }}</span>
+          <h2 class="text-blue">{{ formatNum(summary?.enrolled) }}</h2>
+          <small class="text-amber">Sanctioned: {{ formatNum(summary?.sanctioned) }}</small>
         </div>
         <div class="kpi-card gov-card">
-          <span>APAAR VERIFIED RECORDS</span>
-          <h2 class="text-green">31.1 L</h2>
-          <small class="text-green">89.8% Synced with DigiLocker</small>
+          <span>{{ 'aicte.kpi.verified' | i18n }}</span>
+          <h2 class="text-green">{{ formatNum(summary?.verified) }}</h2>
+          <small class="text-green">{{ summary?.verifiedPct ?? 0 }}% Synced with DigiLocker</small>
         </div>
         <div class="kpi-card gov-card">
-          <span>DUPLICATES INTERCEPTED</span>
-          <h2 class="text-red">14,210</h2>
-          <small class="text-red">Kafka Risk Engine Flags</small>
+          <span>{{ 'aicte.kpi.duplicates' | i18n }}</span>
+          <h2 class="text-red">{{ formatNum(summary?.duplicates) }}</h2>
+          <small class="text-red">Risk Engine Flags</small>
         </div>
       </div>
 
-      <!-- State-Wise Official Bar Chart -->
+      <!-- State-Wise Bar Chart (live from the database) -->
       <div class="state-card gov-card">
         <div class="chart-header">
           <div>
-            <h3>Pan-India State-Wise APAAR Verification Progress</h3>
-            <p class="sub-text">Comparative student verification statistics across major technical education states</p>
+            <h3>{{ 'aicte.chart.title' | i18n }}</h3>
+            <p class="sub-text">Live comparative student verification statistics across states with active institutions</p>
           </div>
           <div class="chart-legend">
-            <span class="legend-item"><span class="legend-badge total-badge"></span> Total Sanctioned Enrolments</span>
+            <span class="legend-item"><span class="legend-badge total-badge"></span> Total Enrolled</span>
             <span class="legend-item"><span class="legend-badge verified-badge"></span> Verified APAAR Records</span>
           </div>
         </div>
 
-        <div class="bar-chart-wrapper">
+        <div class="bar-chart-wrapper" *ngIf="stateData.length > 0">
           <!-- Y-Axis Scale -->
           <div class="y-axis">
-            <span>600k</span>
-            <span>450k</span>
-            <span>300k</span>
-            <span>150k</span>
-            <span>0</span>
+            <span *ngFor="let tick of yTicks">{{ tick }}</span>
           </div>
 
           <!-- Chart Plot Area -->
           <div class="chart-plot">
-            <div class="grid-line" style="bottom: 100%;"></div>
-            <div class="grid-line" style="bottom: 75%;"></div>
-            <div class="grid-line" style="bottom: 50%;"></div>
-            <div class="grid-line" style="bottom: 25%;"></div>
+            <div class="grid-line" *ngFor="let g of gridLines" [style.bottom.%]="g"></div>
             <div class="grid-line baseline" style="bottom: 0%;"></div>
 
-            <!-- Standing Bar Columns -->
             <div class="columns-container">
               <div *ngFor="let s of stateData" class="state-column-group">
-                <!-- Dual Standing Bars -->
                 <div class="dual-bars">
-                  <!-- Bar 1: Total Enrolments -->
-                  <div class="standing-bar total-bar" 
+                  <div class="standing-bar total-bar"
                        [style.height.%]="(s.total / maxStateVal * 100)"
-                       [title]="s.state + ' Total Enrolment: ' + (s.total | number)">
-                  </div>
+                       [title]="s.state + ' Total Enrolment: ' + formatNum(s.total) + ' across ' + s.institutions + ' institution(s)'"></div>
 
-                  <!-- Bar 2: Verified Records -->
-                  <div class="standing-bar verified-bar" 
+                  <div class="standing-bar verified-bar"
                        [style.height.%]="(s.verified / maxStateVal * 100)"
-                       [title]="s.state + ' Verified: ' + (s.verified | number) + ' (' + (s.verified / s.total * 100).toFixed(1) + '%)'">
-                  </div>
+                       [title]="s.state + ' Verified: ' + formatNum(s.verified) + ' (' + pct(s.verified, s.total) + '%)'"></div>
                 </div>
 
-                <!-- X-Axis Labels -->
                 <div class="x-axis-info">
                   <span class="state-name">{{ s.state }}</span>
-                  <span class="state-sync">{{ (s.verified / s.total * 100).toFixed(1) }}% Synced</span>
+                  <span class="state-sync">{{ pct(s.verified, s.total) }}% Synced</span>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+        <p *ngIf="stateData.length === 0" class="sub-text" style="text-align:center; padding: 30px;">
+          No institutional data available yet. Colleges appear here as they enrol students.
+        </p>
+      </div>
+
+      <!-- ============ ADVANCED ANALYTICS (7 live analyses) ============ -->
+      <div class="analytics-section" *ngIf="summary?.funnel">
+        <div class="analytics-head">
+          <h3>📈 {{ 'aicte.analytics' | i18n }}</h3>
+          <p class="sub-text">{{ 'aicte.analyticsSub' | i18n }}</p>
+        </div>
+
+        <div class="analytics-grid">
+          <!-- 1. Verification Funnel -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.funnel' | i18n }}</h4>
+            <div class="funnel-row" *ngFor="let f of funnelRows">
+              <span class="funnel-label">{{ f.label }}</span>
+              <div class="funnel-track">
+                <div class="funnel-fill" [ngClass]="f.cls" [style.width.%]="f.pct"></div>
+              </div>
+              <span class="funnel-val">{{ formatNum(f.value) }}</span>
+            </div>
+          </div>
+
+          <!-- 2. Category mix (donut) -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.categoryMix' | i18n }}</h4>
+            <div class="donut-wrap">
+              <svg viewBox="0 0 120 120" class="donut-svg">
+                <g transform="translate(60,60)">
+                  <circle *ngFor="let seg of donutSegments" r="42" fill="none"
+                          [attr.stroke]="seg.color" [attr.stroke-width]="16"
+                          [attr.stroke-dasharray]="seg.dash"
+                          [attr.stroke-dashoffset]="seg.offset"
+                          transform="rotate(-90)" />
+                </g>
+                <text x="60" y="57" text-anchor="middle" class="donut-num">{{ formatNum(categoryTotal) }}</text>
+                <text x="60" y="71" text-anchor="middle" class="donut-cap">Records</text>
+              </svg>
+              <div class="donut-legend">
+                <span *ngFor="let seg of donutSegments" class="legend-item">
+                  <span class="legend-badge" [style.background]="seg.color"></span>
+                  {{ seg.label }} ({{ seg.value }})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Course distribution -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.courseDist' | i18n }}</h4>
+            <div class="hbar-row" *ngFor="let c of courseRows">
+              <span class="hbar-label" [title]="c.label">{{ c.short }}</span>
+              <div class="hbar-track"><div class="hbar-fill" [style.width.%]="c.pct"></div></div>
+              <span class="hbar-val">{{ c.value }}</span>
+            </div>
+          </div>
+
+          <!-- 4. Year-wise enrolment -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.yearDist' | i18n }}</h4>
+            <div class="mini-bars">
+              <div class="mini-bar-col" *ngFor="let y of yearRows">
+                <span class="mini-bar-val">{{ y.value }}</span>
+                <div class="mini-bar" [style.height.%]="y.pct"></div>
+                <span class="mini-bar-label">{{ y.label }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. State verification stack -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.stateStack' | i18n }}</h4>
+            <div class="stack-legend">
+              <span class="legend-item"><span class="legend-badge" style="background:#059669"></span> Verified</span>
+              <span class="legend-item"><span class="legend-badge" style="background:#F59E0B"></span> Pending</span>
+              <span class="legend-item"><span class="legend-badge" style="background:#DC2626"></span> Duplicate</span>
+            </div>
+            <div class="stack-rows">
+              <div class="stack-row" *ngFor="let s of stateStackRows">
+                <span class="stack-label">{{ s.state }}</span>
+                <div class="stack-track">
+                  <div class="stack-seg v" [style.width.%]="s.vPct" [title]="s.state + ' verified: ' + s.verified"></div>
+                  <div class="stack-seg p" [style.width.%]="s.pPct" [title]="s.state + ' pending: ' + s.pending"></div>
+                  <div class="stack-seg d" [style.width.%]="s.dPct" [title]="s.state + ' duplicate: ' + s.duplicate"></div>
+                </div>
+                <span class="stack-val">{{ s.total }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Quota utilisation -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.quota' | i18n }}</h4>
+            <div class="quota-rows">
+              <div class="quota-row" *ngFor="let q of quotaRows">
+                <span class="quota-label">{{ q.label }}</span>
+                <div class="quota-track"><div class="quota-fill" [ngClass]="q.cls" [style.width.%]="q.pct"></div></div>
+                <span class="quota-val">{{ q.value }}</span>
+              </div>
+            </div>
+            <p class="panel-note">TFW is supernumerary (additional to sanctioned intake); NRI / FN are separate statutory quotas.</p>
+          </div>
+
+          <!-- 7. ABC credits progression -->
+          <div class="gov-card viz-card">
+            <h4>{{ 'aicte.creditsProg' | i18n }}</h4>
+            <div class="credits-line">
+              <div class="credits-col" *ngFor="let c of creditsRows">
+                <span class="credits-val">{{ c.avg }}</span>
+                <div class="credits-bar" [style.height.%]="c.pct"></div>
+                <span class="credits-label">{{ c.label }}</span>
+              </div>
+            </div>
+            <p class="panel-note">Average ABC credits banked per academic year (≈30 Cr per year as per UGC ABC norms).</p>
+          </div>
+
+          <!-- 8. Intake compliance watchlist -->
+          <div class="gov-card viz-card">
+            <h4>🚨 {{ 'aicte.overIntakeWatch' | i18n }}</h4>
+            <div *ngIf="overIntakeRows.length > 0">
+              <div class="watch-row" *ngFor="let w of overIntakeRows">
+                <span class="watch-code font-mono">{{ w.code }}</span>
+                <span class="watch-name" [title]="w.name">{{ w.name }}</span>
+                <span class="watch-var">+{{ w.variance }}</span>
+              </div>
+            </div>
+            <p *ngIf="overIntakeRows.length === 0" class="panel-note">All institutions are within sanctioned intake. National registry compliant.</p>
           </div>
         </div>
       </div>
@@ -120,11 +272,11 @@ import { ApaarService, College } from '../../services/apaar.service';
       <div class="table-card gov-card">
         <div class="table-header">
           <div>
-            <h3>College-Wise Intake Compliance & Verification Master Table</h3>
+            <h3>{{ 'aicte.table.title' | i18n }}</h3>
             <p>AICTE regulatory oversight of approved intake versus actual student enrolment</p>
           </div>
           <div class="filter-row">
-            <input type="text" [(ngModel)]="searchCollege" (input)="filterColleges()" placeholder="Search College or Code..." />
+            <input type="text" [(ngModel)]="searchCollege" (input)="filterColleges()" placeholder="Search College, Code or State..." />
           </div>
         </div>
 
@@ -134,17 +286,18 @@ import { ApaarService, College } from '../../services/apaar.service';
               <tr>
                 <th>Code</th>
                 <th>College Name & State</th>
-                <th>Approved Intake</th>
-                <th>Actual Enrolment</th>
+                <th class="sortable" (click)="toggleSort('approvedIntake')">Approved Intake {{ arrowFor('approvedIntake') }}</th>
+                <th class="sortable" (click)="toggleSort('actualEnrolment')">Actual Enrolment {{ arrowFor('actualEnrolment') }}</th>
                 <th>Intake Variance</th>
                 <th>Supernumerary (TFW)</th>
                 <th>NRI / FN</th>
                 <th>Verification %</th>
                 <th>Status</th>
+                <th>Admin Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let c of filteredColleges">
+              <tr *ngFor="let c of filteredColleges" [ngClass]="{ 'row-muted': c.active === false }">
                 <td class="code-col font-mono text-bold">{{ c.code }}</td>
                 <td class="college-info-cell">
                   <div class="college-name-text">{{ c.name }}</div>
@@ -163,49 +316,50 @@ import { ApaarService, College } from '../../services/apaar.service';
                 <td class="text-center text-purple font-semibold">{{ c.supernumeraryQuota }} Seats</td>
                 <td class="text-center text-amber font-semibold">{{ c.nriCount }} NRI / {{ c.fnCount }} FN</td>
                 <td class="text-center font-bold text-green">
-                  {{ (c.verifiedCount / c.actualEnrolment * 100).toFixed(1) }}%
+                  {{ c.actualEnrolment > 0 ? ((c.verifiedCount / c.actualEnrolment * 100).toFixed(1) + '%') : '—' }}
                 </td>
                 <td class="text-center">
-                  <span class="status-pill" [ngClass]="c.actualEnrolment > c.approvedIntake ? 'audit' : 'ok'">
-                    {{ c.actualEnrolment > c.approvedIntake ? 'Under Audit' : 'Approved' }}
+                  <span class="status-pill" [ngClass]="c.active === false ? 'suspended' : (c.actualEnrolment > c.approvedIntake ? 'audit' : 'ok')">
+                    {{ c.active === false ? 'Suspended' : (c.actualEnrolment > c.approvedIntake ? 'Under Audit' : 'Approved') }}
                   </span>
                 </td>
+                <td class="text-center action-buttons-cell">
+                  <button class="mini-btn view" (click)="viewCollegeStudents(c)" title="View this college's student registry">👥 Students</button>
+                  <button *ngIf="c.active !== false" class="mini-btn suspend" (click)="setCollegeStatus(c, 'suspend')" title="Suspend portal access">⏸ Suspend</button>
+                  <button *ngIf="c.active === false" class="mini-btn activate" (click)="setCollegeStatus(c, 'activate')" title="Reinstate portal access">▶ Activate</button>
+                </td>
+              </tr>
+              <tr *ngIf="filteredColleges.length === 0">
+                <td colspan="10" class="no-records">No colleges match the current search.</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <!-- Anomaly & Fraud Engine Log & Audit Ledger -->
+      <!-- Anomaly Alerts & Audit Ledger -->
       <div class="logs-grid">
         <div class="log-box gov-card">
           <div class="box-head">
-            <h3>🚨 Kafka Duplicate Anomaly Stream</h3>
-            <span class="stream-pill">TOPIC: aicte.apaar.duplicate-events</span>
+            <h3>🚨 {{ 'aicte.alerts' | i18n }}</h3>
+            <span class="stream-pill">{{ duplicateFeed.length }} Active Conflicts</span>
           </div>
           <div class="log-entries">
-            <div class="log-item critical">
-              <strong>FRD-2026-081 (CRITICAL)</strong>
-              <p>Mohammad Farhan Akhtar (APAAR10000005) active at Delhi Inst of Tech and UP Council of Tech simultaneously.</p>
-              <small>Action: Notice Issued • Streamed via Spring Kafka</small>
+            <div *ngFor="let d of duplicateFeed" class="log-item critical">
+              <strong>{{ d.apaarId }} (CRITICAL)</strong>
+              <p>{{ d.name }} — active seat conflict between <strong>{{ d.collegeName }}</strong> and <strong>{{ d.conflictCollege }}</strong>.</p>
+              <small>{{ d.reason }}</small>
             </div>
-            <div class="log-item high">
-              <strong>FRD-2026-082 (HIGH)</strong>
-              <p>Delhi Inst of Engineering & Tech exceeded approved intake by 40 seats without TFW clearance.</p>
-              <small>Action: Audit Scheduled</small>
-            </div>
-            <div class="log-item critical">
-              <strong>FRD-2026-083 (CRITICAL)</strong>
-              <p>Ananya Banerjee (APAAR10000012) dual admission logged in Delhi and Karnataka portals.</p>
-              <small>Action: Seat Blocked</small>
+            <div *ngIf="duplicateFeed.length === 0" class="log-item normal">
+              <p>No duplicate enrolment conflicts detected. The national registry is clean.</p>
             </div>
           </div>
         </div>
 
         <div class="log-box gov-card">
           <div class="box-head">
-            <h3>📜 Immutable System Audit Ledger</h3>
-            <span class="stream-pill blue">JPA AUDIT LOGS</span>
+            <h3>📜 {{ 'aicte.ledger' | i18n }}</h3>
+            <span class="stream-pill blue">SYSTEM AUDIT LOGS</span>
           </div>
           <div class="log-entries">
             <div *ngFor="let log of auditLogs" class="log-item normal">
@@ -214,21 +368,74 @@ import { ApaarService, College } from '../../services/apaar.service';
                 <strong>{{ log.action }}</strong>
               </div>
               <p>APAAR ID: <strong>{{ log.apaarId }}</strong> ({{ log.studentName }})</p>
-              <small>Actor: {{ log.actor }} • IP: {{ log.ipAddress }}</small>
+              <small>Actor: {{ log.actor }} • Role: {{ log.role }} • IP: {{ log.ipAddress }}</small>
             </div>
           </div>
         </div>
       </div>
+      </div>
+    </div>
+
+    <!-- College Student Drill-Down Modal -->
+    <div *ngIf="drillDownCollege" class="modal-overlay" (click)="drillDownCollege = null">
+      <div class="drilldown-card gov-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div>
+            <h3>{{ drillDownCollege.name }} — Student Registry</h3>
+            <p class="sub-text">{{ drillDownCollege.code }} • {{ drillDownCollege.city }}, {{ drillDownCollege.state }} • {{ drillDownStudents.length }} enrolled students</p>
+          </div>
+          <button (click)="drillDownCollege = null" class="close-btn">✕</button>
+        </div>
+
+        <div class="drilldown-table-wrap" *ngIf="drillDownStudents.length > 0">
+          <table class="gov-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>APAAR ID</th>
+                <th>Course</th>
+                <th>Year</th>
+                <th>ABC Credits</th>
+                <th>Category</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of drillDownStudents">
+                <td class="college-name-text">
+                  <span class="row-avatar initials-avatar" [style.background]="avatarColor(s.name)" [style.width.px]="26" [style.height.px]="26" [style.fontSize.px]="9">{{ initialsOf(s.name) }}</span>
+                  {{ s.name }}
+                </td>
+                <td class="font-mono">{{ s.apaarId }}</td>
+                <td>{{ s.course }}</td>
+                <td class="text-center">{{ s.academicYear }}</td>
+                <td class="text-center">{{ s.abcCredits }} Cr</td>
+                <td>{{ s.category }}</td>
+                <td>
+                  <span class="status-pill"
+                        [ngClass]="s.status === 'verified' ? 'ok' : (s.status === 'duplicate' ? 'audit' : 'pending-pill')">
+                    {{ s.status | uppercase }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p *ngIf="drillDownStudents.length === 0" class="sub-text" style="padding: 20px; text-align: center;">
+          No students enrolled yet at this institution.
+        </p>
+      </div>
     </div>
   `,
   styles: [`
-    .aicte-container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
-    .header-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; margin-bottom: 20px; }
+    .aicte-container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+    .header-card { display: flex; justify-content: space-between; align-items: center; padding: 20px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
     .header-left { display: flex; align-items: center; gap: 15px; }
     .avatar-badge { width: 45px; height: 45px; background: #0F2C61; color: #fff; font-size: 22px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
     .header-left h1 { font-size: 20px; margin: 0; color: #0F2C61; font-weight: 800; }
     .header-left p { font-size: 11px; margin: 3px 0 0; color: #64748b; }
-    .header-actions { display: flex; gap: 10px; }
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .logout-btn { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 8px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600; color: #475569; }
     .export-toast { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; padding: 12px; border-radius: 8px; font-size: 12px; font-weight: 700; margin-bottom: 20px; }
     .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
     .kpi-card { padding: 20px; }
@@ -250,56 +457,72 @@ import { ApaarService, College } from '../../services/apaar.service';
     .total-badge { background: #0F2C61; }
     .verified-badge { background: #10B981; }
     .bar-chart-wrapper { display: flex; gap: 12px; margin-top: 20px; padding-right: 15px; }
-    .y-axis { display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; font-weight: 600; color: #64748b; text-align: right; height: 210px; padding-bottom: 35px; min-width: 40px; }
+    .y-axis { display: flex; flex-direction: column; justify-content: space-between; font-size: 11px; font-weight: 600; color: #64748b; text-align: right; height: 210px; padding-bottom: 35px; min-width: 48px; }
     .chart-plot { flex: 1; position: relative; height: 210px; margin-bottom: 35px; border-bottom: 2px solid #cbd5e1; }
     .grid-line { position: absolute; left: 0; right: 0; border-top: 1px dashed #e2e8f0; }
     .grid-line.baseline { border-top: 2px solid #94a3b8; }
     .columns-container { display: flex; justify-content: space-around; align-items: flex-end; height: 100%; position: relative; z-index: 2; padding: 0 10px; }
-    .state-column-group { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 18%; position: relative; }
-    .dual-bars { display: flex; gap: 6px; align-items: flex-end; height: 170px; width: 100%; justify-content: center; }
-    .standing-bar { width: 32px; border-radius: 2px 2px 0 0; position: relative; cursor: pointer; transition: opacity 0.2s; }
+    .state-column-group { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 12%; min-width: 60px; position: relative; }
+    .dual-bars { display: flex; gap: 5px; align-items: flex-end; height: 170px; width: 100%; justify-content: center; }
+    .standing-bar { width: 26px; border-radius: 2px 2px 0 0; position: relative; cursor: pointer; transition: opacity 0.2s; min-height: 2px; }
     .standing-bar:hover { opacity: 0.85; }
     .total-bar { background: #0F2C61; }
     .verified-bar { background: #10B981; }
     .x-axis-info { position: absolute; bottom: -32px; text-align: center; white-space: nowrap; }
-    .state-name { font-size: 12px; font-weight: 700; color: #0F2C61; display: block; }
-    .state-sync { font-size: 10px; font-weight: 700; color: #059669; display: block; }
-    @media (max-width: 768px) {
-      .standing-bar { width: 18px; }
-      .dual-bars { gap: 3px; }
-      .state-name { font-size: 10px; }
-      .state-sync { font-size: 9px; }
+    .state-name { font-size: 11px; font-weight: 700; color: #0F2C61; display: block; }
+    .state-sync { font-size: 9px; font-weight: 700; color: #059669; display: block; }
+    @media (max-width: 900px) {
+      .standing-bar { width: 12px; }
+      .dual-bars { gap: 2px; }
+      .state-name { font-size: 8px; }
+      .state-sync { font-size: 7px; }
+      .state-column-group { min-width: 34px; }
     }
     .table-card { padding: 20px; margin-bottom: 20px; }
-    .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
     .table-header h3 { font-size: 15px; color: #0F2C61; margin: 0; font-weight: 800; }
     .table-header p { font-size: 11px; color: #64748b; margin: 2px 0 0; }
     .filter-row input { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; }
     .table-responsive { overflow-x: auto; }
     .gov-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
-    .gov-table th { background: #0F2C61; color: #fff; padding: 10px; font-size: 10px; text-transform: uppercase; }
+    .gov-table th { background: #0F2C61; color: #fff; padding: 10px; font-size: 10px; text-transform: uppercase; white-space: nowrap; }
+    .gov-table th.sortable { cursor: pointer; }
+    .gov-table th.sortable:hover { background: #16386e; }
     .gov-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+    .row-muted { opacity: 0.55; }
     .code-col { white-space: nowrap; font-family: monospace; font-weight: 700; color: #0F2C61; min-width: 110px; }
-    .college-info-cell { min-width: 250px; text-align: left; }
+    .college-info-cell { min-width: 230px; text-align: left; }
     .college-name-text { font-weight: 700; color: #0F2C61; font-size: 12px; margin-bottom: 2px; }
     .college-location-text { font-size: 11px; color: #64748b; }
     .font-mono { font-family: monospace; }
+    .font-bold { font-weight: 700; }
+    .font-semibold { font-weight: 600; }
     .text-bold { font-weight: 700; color: #0F2C61; }
     .text-center { text-align: center; }
     .variance-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
     .variance-badge.over { background: #fee2e2; color: #991b1b; }
     .variance-badge.ok { background: #d1fae5; color: #065f46; }
-    .status-pill { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .status-pill { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; }
     .status-pill.audit { background: #fee2e2; color: #991b1b; }
     .status-pill.ok { background: #eff6ff; color: #1e40af; }
+    .status-pill.pending-pill { background: #fef3c7; color: #d97706; }
+    .status-pill.suspended { background: #f1f5f9; color: #64748b; }
+    .action-buttons-cell { white-space: nowrap; }
+    .mini-btn { border: none; border-radius: 4px; padding: 4px 8px; font-size: 10px; font-weight: 700; cursor: pointer; margin: 0 3px; }
+    .mini-btn.view { background: #eff6ff; color: #1e40af; }
+    .mini-btn.view:hover { background: #dbeafe; }
+    .mini-btn.suspend { background: #fee2e2; color: #991b1b; }
+    .mini-btn.suspend:hover { background: #fecaca; }
+    .mini-btn.activate { background: #d1fae5; color: #065f46; }
+    .mini-btn.activate:hover { background: #a7f3d0; }
     .logs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    @media(max-width: 768px) { .logs-grid { grid-template-columns: 1fr; } }
+    @media(max-width: 768px) { .logs-grid { grid-template-columns: 1fr; } .header-actions { width: 100%; } }
     .log-box { padding: 20px; }
     .box-head { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 15px; }
     .box-head h3 { font-size: 14px; color: #0F2C61; margin: 0; font-weight: 800; }
     .stream-pill { font-size: 10px; font-family: monospace; background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
     .stream-pill.blue { background: #eff6ff; color: #1e40af; }
-    .log-entries { display: flex; flex-direction: column; gap: 10px; }
+    .log-entries { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; }
     .log-item { padding: 10px; border-radius: 6px; font-size: 11px; border: 1px solid #e2e8f0; }
     .log-item.critical { background: #fff5f5; border-color: #fed7d7; }
     .log-item.high { background: #fffaf0; border-color: #feebc8; }
@@ -307,222 +530,449 @@ import { ApaarService, College } from '../../services/apaar.service';
     .log-item p { margin: 4px 0 2px; color: #4a5568; }
     .log-item small { color: #a0aec0; }
     .log-meta { display: flex; justify-content: space-between; color: #718096; margin-bottom: 2px; }
+
+    /* Admin login */
+    .admin-login-wrapper { display: flex; justify-content: center; padding: 60px 0; }
+    .admin-login-card { max-width: 420px; width: 100%; padding: 36px 32px; text-align: center; }
+    .login-emblem { font-size: 42px; display: inline-block; }
+    .admin-login-card h2 { font-size: 22px; color: #0F2C61; margin: 6px 0 0; font-weight: 800; }
+    .admin-login-form { margin-top: 20px; }
+    .field { text-align: left; margin-bottom: 14px; }
+    .field label { display: block; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .text-input { width: 100%; box-sizing: border-box; padding: 11px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0F2C61; outline: none; }
+    .text-input:focus { border-color: #0F2C61; }
+    .login-err { background: #fee2e2; color: #991b1b; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; text-align: left; border: 1px solid #fecaca; }
+    .sign-in-btn { width: 100%; background: #0F2C61; color: #fff; border: none; border-radius: 6px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .sign-in-btn:disabled { background: #94a3b8; cursor: wait; }
+
+    /* Drill-down modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(15,44,97,0.45); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .drilldown-card { background: #fff; border-radius: 12px; max-width: 860px; width: 100%; max-height: 84vh; overflow-y: auto; padding: 24px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; gap: 10px; }
+    .modal-header h3 { margin: 0; font-size: 16px; color: #0F2C61; }
+    .close-btn { background: none; border: none; font-size: 16px; cursor: pointer; color: #94a3b8; }
+    .drilldown-table-wrap { overflow-x: auto; }
+    .row-avatar { margin-right: 6px; vertical-align: middle; }
+    .no-records { text-align: center; color: #94a3b8; padding: 24px; }
+
+    /* ============ Advanced Analytics (7 analyses) ============ */
+    .analytics-section { margin: 22px 0; }
+    .analytics-head { margin-bottom: 12px; }
+    .analytics-head h3 { margin: 0 0 2px; color: #0F2C61; font-size: 17px; }
+    .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+    .viz-card { padding: 16px; }
+    .viz-card h4 { margin: 0 0 12px; font-size: 13px; color: #0F2C61; font-weight: 800; }
+    .panel-note { margin: 10px 0 0; font-size: 10px; color: #94a3b8; }
+
+    .funnel-row { display: grid; grid-template-columns: 110px 1fr 52px; align-items: center; gap: 8px; margin-bottom: 9px; }
+    .funnel-label { font-size: 11px; color: #475569; font-weight: 600; }
+    .funnel-track { background: #f1f5f9; border-radius: 6px; height: 16px; overflow: hidden; }
+    .funnel-fill { height: 100%; border-radius: 6px; min-width: 2px; transition: width 0.4s; }
+    .f-total { background: #0F2C61; }
+    .f-verified { background: #059669; }
+    .f-pending { background: #F59E0B; }
+    .f-duplicate { background: #DC2626; }
+    .f-rejected { background: #94a3b8; }
+    .funnel-val { font-size: 12px; font-weight: 800; color: #0F2C61; text-align: right; }
+
+    .donut-wrap { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .donut-svg { width: 128px; height: 128px; flex-shrink: 0; }
+    .donut-num { font-size: 15px; font-weight: 800; fill: #0F2C61; }
+    .donut-cap { font-size: 7px; fill: #94a3b8; text-transform: uppercase; }
+    .donut-legend { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: #475569; }
+
+    .hbar-row { display: grid; grid-template-columns: 120px 1fr 36px; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .hbar-label { font-size: 10px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hbar-track { background: #f1f5f9; height: 12px; border-radius: 6px; overflow: hidden; }
+    .hbar-fill { height: 100%; background: linear-gradient(90deg, #0F2C61, #1A448A); border-radius: 6px; }
+    .hbar-val { font-size: 11px; font-weight: 700; color: #0F2C61; text-align: right; }
+
+    .mini-bars { display: flex; justify-content: space-around; align-items: flex-end; height: 130px; padding-top: 18px; }
+    .mini-bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 56px; }
+    .mini-bar-val { font-size: 11px; font-weight: 800; color: #0F2C61; margin-bottom: 4px; }
+    .mini-bar { width: 34px; background: linear-gradient(180deg, #1A448A, #0F2C61); border-radius: 6px 6px 0 0; }
+    .mini-bar-label { margin-top: 6px; font-size: 10px; color: #64748b; }
+
+    .stack-legend { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+    .stack-rows { display: flex; flex-direction: column; gap: 7px; }
+    .stack-row { display: grid; grid-template-columns: 92px 1fr 40px; align-items: center; gap: 8px; }
+    .stack-label { font-size: 10px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stack-track { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: #f1f5f9; }
+    .stack-seg { height: 100%; }
+    .stack-seg.v { background: #059669; }
+    .stack-seg.p { background: #F59E0B; }
+    .stack-seg.d { background: #DC2626; }
+    .stack-val { font-size: 11px; font-weight: 700; color: #0F2C61; text-align: right; }
+
+    .quota-rows { display: flex; flex-direction: column; gap: 10px; }
+    .quota-row { display: grid; grid-template-columns: 130px 1fr 40px; align-items: center; gap: 8px; }
+    .quota-label { font-size: 11px; color: #475569; }
+    .quota-track { background: #f1f5f9; height: 12px; border-radius: 6px; overflow: hidden; }
+    .quota-fill { height: 100%; border-radius: 6px; min-width: 2px; }
+    .q-tfw { background: #6D28D9; }
+    .q-ews { background: #0E7490; }
+    .q-nri { background: #D97706; }
+    .q-fn { background: #BE123D; }
+    .quota-val { font-size: 12px; font-weight: 800; color: #0F2C61; text-align: right; }
+
+    .credits-line { display: flex; justify-content: space-around; align-items: flex-end; height: 120px; padding-top: 16px; }
+    .credits-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+    .credits-val { font-size: 11px; font-weight: 800; color: #059669; margin-bottom: 4px; }
+    .credits-bar { width: 42px; background: linear-gradient(180deg, #10b981, #059669); border-radius: 6px 6px 0 0; }
+    .credits-label { margin-top: 6px; font-size: 10px; color: #64748b; }
+
+    .watch-row { display: grid; grid-template-columns: 108px 1fr 48px; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px dashed #f1f5f9; }
+    .watch-row:last-child { border-bottom: none; }
+    .watch-code { font-size: 10px; color: #475569; }
+    .watch-name { font-size: 11px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .watch-var { font-size: 12px; font-weight: 800; color: #DC2626; text-align: right; background: #fef2f2; border-radius: 6px; padding: 2px 6px; }
   `]
 })
 export class AicteComponent implements OnInit {
+  isAdminAuthenticated: boolean = false;
+  authBusy: boolean = false;
+  adminEmail: string = '';
+  adminPassword: string = '';
+  adminLoginError: string = '';
+
   colleges: College[] = [];
   filteredColleges: College[] = [];
   searchCollege: string = '';
   auditLogs: any[] = [];
   exportToast: string = '';
-  maxStateVal: number = 600000;
+  summary: any = null;
+  stateData: Array<{ state: string; total: number; verified: number; institutions: number }> = [];
+  duplicateFeed: Array<{ apaarId: string; name: string; collegeName: string; conflictCollege: string; reason: string }> = [];
+  maxStateVal: number = 1;
+  yTicks: string[] = ['0'];
+  gridLines: number[] = [0, 25, 50, 75, 100];
 
-  private defaultColleges: College[] = [
-    {
-      id: 'COL001',
-      name: 'Delhi Institute of Engineering & Technology',
-      code: 'AICTE-DL-0012',
-      state: 'Delhi',
-      city: 'New Delhi',
-      approvedIntake: 1200,
-      actualEnrolment: 1240,
-      verifiedCount: 980,
-      pendingCount: 200,
-      duplicateCount: 60,
-      supernumeraryQuota: 45,
-      nriCount: 24,
-      fnCount: 8
-    },
-    {
-      id: 'COL002',
-      name: 'Maharashtra National Institute of Technology',
-      code: 'AICTE-MH-0845',
-      state: 'Maharashtra',
-      city: 'Pune',
-      approvedIntake: 420,
-      actualEnrolment: 418,
-      verifiedCount: 380,
-      pendingCount: 28,
-      duplicateCount: 10,
-      supernumeraryQuota: 21,
-      nriCount: 12,
-      fnCount: 6
-    },
-    {
-      id: 'COL003',
-      name: 'Bangalore Technical & Science Academy',
-      code: 'AICTE-KA-0491',
-      state: 'Karnataka',
-      city: 'Bengaluru',
-      approvedIntake: 300,
-      actualEnrolment: 295,
-      verifiedCount: 260,
-      pendingCount: 30,
-      duplicateCount: 5,
-      supernumeraryQuota: 15,
-      nriCount: 10,
-      fnCount: 8
-    },
-    {
-      id: 'COL004',
-      name: 'Tamil Nadu Engineering & Management Campus',
-      code: 'AICTE-TN-0219',
-      state: 'Tamil Nadu',
-      city: 'Chennai',
-      approvedIntake: 480,
-      actualEnrolment: 472,
-      verifiedCount: 440,
-      pendingCount: 24,
-      duplicateCount: 8,
-      supernumeraryQuota: 24,
-      nriCount: 15,
-      fnCount: 10
-    },
-    {
-      id: 'COL005',
-      name: 'Uttar Pradesh Council of Technology',
-      code: 'AICTE-UP-0672',
-      state: 'Uttar Pradesh',
-      city: 'Lucknow',
-      approvedIntake: 500,
-      actualEnrolment: 515,
-      verifiedCount: 410,
-      pendingCount: 85,
-      duplicateCount: 20,
-      supernumeraryQuota: 25,
-      nriCount: 6,
-      fnCount: 2
-    }
-  ];
+  sortKey: string = '';
+  sortDir: 'asc' | 'desc' = 'asc';
 
-  private defaultAuditLogs = [
-    {
-      id: 1,
-      apaarId: '123456789012',
-      studentName: 'Aarav Sharma',
-      action: 'APAAR_VERIFIED',
-      actor: 'college@aicte.ac.in',
-      role: 'COLLEGE_ADMIN',
-      ipAddress: '192.168.1.10',
-      timestamp: new Date().toISOString()
-    },
-    {
-      id: 2,
-      apaarId: '100000000005',
-      studentName: 'Mohammad Farhan Akhtar',
-      action: 'DUPLICATE_FLAGGED',
-      actor: 'SYSTEM_KAFKA_STREAM',
-      role: 'SYSTEM',
-      ipAddress: '10.0.0.1',
-      timestamp: new Date(Date.now() - 3600000).toISOString()
-    },
-    {
-      id: 3,
-      apaarId: '100000000013',
-      studentName: 'Rajesh Kumar',
-      action: 'INTAKE_AUDIT_PENDING',
-      actor: 'principal.diet@delhi-tech.ac.in',
-      role: 'COLLEGE_ADMIN',
-      ipAddress: '192.168.1.14',
-      timestamp: new Date(Date.now() - 7200000).toISOString()
-    },
-    {
-      id: 4,
-      apaarId: '100000000012',
-      studentName: 'Ananya Banerjee',
-      action: 'DUAL_ADMISSION_INTERCEPT',
-      actor: 'AICTE_FRAUD_MONITOR',
-      role: 'SUPER_ADMIN',
-      ipAddress: '10.0.0.2',
-      timestamp: new Date(Date.now() - 10800000).toISOString()
-    }
-  ];
+  drillDownCollege: College | null = null;
+  drillDownStudents: Student[] = [];
 
-  stateData = [
-    { state: 'Maharashtra', total: 420000, verified: 395000 },
-    { state: 'Tamil Nadu', total: 380000, verified: 362000 },
-    { state: 'Karnataka', total: 310000, verified: 290000 },
-    { state: 'Delhi NCR', total: 290000, verified: 268000 },
-    { state: 'Uttar Pradesh', total: 540000, verified: 475000 },
-  ];
-
-  constructor(private apaarService: ApaarService, private cdr: ChangeDetectorRef) {}
+  constructor(
+    private apaarService: ApaarService,
+    private session: SessionService,
+    private ui: UiStateService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
-    this.initData();
+    const s = this.session.session();
+    if (s && s.role === 'admin') {
+      this.isAdminAuthenticated = true;
+      this.adminEmail = s.email;
+      this.loadDashboard();
+    }
+  }
+
+  adminLogin() {
+    this.adminLoginError = '';
+    if (!this.adminEmail.trim() || !this.adminPassword) {
+      this.adminLoginError = 'Administrator email and password are required.';
+      return;
+    }
+
+    this.authBusy = true;
+    this.apaarService.adminLogin(this.adminEmail.trim(), this.adminPassword).subscribe({
+      next: (res) => {
+        this.authBusy = false;
+        if (res && res.success) {
+          this.session.signIn({ role: 'admin', email: res.email, token: res.token });
+          this.isAdminAuthenticated = true;
+          this.adminPassword = '';
+          this.loadDashboard();
+        } else {
+          this.adminLoginError = res?.message || 'Invalid administrator credentials.';
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.authBusy = false;
+        this.adminLoginError = err?.error?.message || (err?.status === 0
+          ? 'Cannot reach the AICTE gateway. Please ensure the backend server is running.'
+          : 'Invalid administrator credentials.');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  adminLogout() {
+    this.session.signOut();
+    this.isAdminAuthenticated = false;
+    this.colleges = [];
+    this.summary = null;
+  }
+
+  loadDashboard() {
+    this.apaarService.getNationalSummary().subscribe({
+      next: (res) => {
+        if (res) {
+          this.summary = res;
+          this.stateData = res.stateWise || [];
+          this.computeChartScale();
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {
+        this.ui.showError('National statistics could not be loaded — the AICTE gateway is unreachable. Start the backend server and refresh.');
+      }
+    });
 
     this.apaarService.getAllColleges().subscribe({
       next: (res) => {
-        if (res && res.success && res.data && res.data.length > 0) {
-          const incoming = res.data as College[];
-          const map = new Map<string, College>();
-          this.colleges.forEach(c => map.set(c.id, c));
-          incoming.forEach(c => map.set(c.id, c));
-          this.colleges = Array.from(map.values());
+        if (res && res.success && res.data) {
+          this.colleges = res.data as College[];
           this.filterColleges();
           this.cdr.detectChanges();
         }
       },
-      error: () => {}
+      error: () => {
+        this.ui.showError('Institution registry could not be loaded — the AICTE gateway is unreachable.');
+      }
+    });
+
+    this.apaarService.getDuplicateAlerts().subscribe({
+      next: (res) => {
+        this.duplicateFeed = res?.success ? (res.data || []) : [];
+        this.cdr.detectChanges();
+      },
+      error: () => { this.duplicateFeed = []; }
     });
 
     this.apaarService.getAuditLogs().subscribe({
       next: (res) => {
-        if (res && res.success && res.data && res.data.length > 0) {
+        if (res && res.success && res.data) {
           this.auditLogs = res.data;
           this.cdr.detectChanges();
         }
       },
-      error: () => {}
+      error: () => {
+        this.auditLogs = [];
+      }
     });
   }
 
-  private initData() {
-    this.colleges = [...this.defaultColleges];
+  private computeChartScale() {
+    const max = Math.max(1, ...this.stateData.map(s => s.total));
+    // Round up to a clean multiple of 4 for 5 y-axis ticks
+    const magnitude = Math.pow(10, Math.floor(Math.log10(max)));
+    this.maxStateVal = Math.ceil(max / (magnitude / 2)) * (magnitude / 2);
+    this.yTicks = [100, 75, 50, 25, 0].map(p => this.formatNum(Math.round(this.maxStateVal * p / 100)));
+  }
 
-    // Merge any registered colleges from localStorage
-    if (typeof localStorage !== 'undefined') {
-      const saved = localStorage.getItem('aicte_registered_colleges');
-      if (saved) {
-        try {
-          const registered = JSON.parse(saved);
-          if (Array.isArray(registered)) {
-            registered.forEach((item: any) => {
-              if (item.college && !this.colleges.some(c => c.id === item.college.id)) {
-                this.colleges.unshift(item.college);
-              }
-            });
-          }
-        } catch (e) {}
-      }
-    }
+  formatNum(n: number | undefined | null): string {
+    if (n === undefined || n === null) return '—';
+    return new Intl.NumberFormat('en-IN').format(n);
+  }
 
-    this.filteredColleges = [...this.colleges];
-    this.auditLogs = [...this.defaultAuditLogs];
-    this.cdr.detectChanges();
+  pct(part: number, total: number): string {
+    return total > 0 ? (part / total * 100).toFixed(1) : '0.0';
+  }
+
+  // ---------------- Advanced analytics accessors (7 live analyses) ----------------
+
+  get funnelRows(): Array<{ label: string; value: number; pct: number; cls: string }> {
+    const f = this.summary?.funnel;
+    if (!f) return [];
+    const total = Math.max(1, f.total || 1);
+    return [
+      { label: 'Total Enrolled', value: f.total || 0, pct: 100, cls: 'f-total' },
+      { label: 'Verified', value: f.verified || 0, pct: (f.verified || 0) / total * 100, cls: 'f-verified' },
+      { label: 'Pending', value: f.pending || 0, pct: (f.pending || 0) / total * 100, cls: 'f-pending' },
+      { label: 'Duplicate Flagged', value: f.duplicate || 0, pct: (f.duplicate || 0) / total * 100, cls: 'f-duplicate' },
+      { label: 'Rejected', value: f.rejected || 0, pct: (f.rejected || 0) / total * 100, cls: 'f-rejected' }
+    ];
+  }
+
+  get donutSegments(): Array<{ label: string; value: number; color: string; dash: string; offset: number }> {
+    const cw: Record<string, number> | undefined = this.summary?.categoryWise;
+    if (!cw) return [];
+    const palette = ['#0F2C61', '#059669', '#F59E0B', '#6D28D9', '#0E7490', '#BE123D', '#475569', '#84CC16', '#D97706'];
+    const entries = Object.entries(cw);
+    const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
+    const C = 2 * Math.PI * 42;
+    let acc = 0;
+    return entries.map(([label, value], i) => {
+      const frac = value / total;
+      const dash = `${frac * C} ${C - frac * C}`;
+      const offset = -acc * C;
+      acc += frac;
+      return { label, value, color: palette[i % palette.length], dash, offset };
+    });
+  }
+
+  get categoryTotal(): number {
+    const cw: Record<string, number> | undefined = this.summary?.categoryWise;
+    return cw ? Object.values(cw).reduce((s, v) => s + v, 0) : 0;
+  }
+
+  get courseRows(): Array<{ label: string; short: string; value: number; pct: number }> {
+    const cw: Record<string, number> | undefined = this.summary?.courseWise;
+    if (!cw) return [];
+    const entries = Object.entries(cw);
+    const max = Math.max(1, ...entries.map(([, v]) => v));
+    return entries.map(([label, value]) => ({
+      label,
+      short: label.replace('B.Tech ', '').replace('Computer Science & Engineering', 'CSE').replace('(Data Science)', 'DS'),
+      value,
+      pct: value / max * 100
+    }));
+  }
+
+  get yearRows(): Array<{ label: string; value: number; pct: number }> {
+    const yw: Record<string, number> | undefined = this.summary?.yearWise;
+    if (!yw) return [];
+    const entries = Object.entries(yw);
+    const max = Math.max(1, ...entries.map(([, v]) => v));
+    return entries.map(([label, value]) => ({ label, value, pct: Math.max(4, value / max * 100) }));
+  }
+
+  get stateStackRows(): Array<{ state: string; verified: number; pending: number; duplicate: number; total: number; vPct: number; pPct: number; dPct: number }> {
+    const sv: Record<string, Record<string, number>> | undefined = this.summary?.stateVerification;
+    if (!sv) return [];
+    return Object.entries(sv).map(([state, buckets]) => {
+      const verified = buckets['verified'] || 0;
+      const pending = buckets['pending'] || 0;
+      const duplicate = (buckets['duplicate'] || 0) + (buckets['rejected'] || 0);
+      const total = verified + pending + duplicate || 1;
+      return {
+        state, verified, pending, duplicate, total,
+        vPct: verified / total * 100,
+        pPct: pending / total * 100,
+        dPct: duplicate / total * 100
+      };
+    }).sort((a, b) => b.total - a.total);
+  }
+
+  get quotaRows(): Array<{ label: string; value: number; pct: number; cls: string }> {
+    const q = this.summary?.quota;
+    if (!q) return [];
+    const total = Math.max(1, this.summary?.funnel?.total || 1);
+    return [
+      { label: 'TFW (Supernumerary)', value: q.tfw || 0, pct: Math.min(100, (q.tfw || 0) / total * 100 * 3), cls: 'q-tfw' },
+      { label: 'EWS', value: q.ews || 0, pct: (q.ews || 0) / total * 100, cls: 'q-ews' },
+      { label: 'NRI', value: q.nri || 0, pct: Math.min(100, (q.nri || 0) / total * 100 * 3), cls: 'q-nri' },
+      { label: 'Foreign National', value: q.fn || 0, pct: Math.min(100, (q.fn || 0) / total * 100 * 3), cls: 'q-fn' }
+    ];
+  }
+
+  get creditsRows(): Array<{ label: string; avg: number; pct: number }> {
+    const cb: Record<string, { avgCredits: number; students: number }> | undefined = this.summary?.creditsByYear;
+    if (!cb) return [];
+    const entries = Object.entries(cb);
+    const max = Math.max(1, ...entries.map(([, v]) => v.avgCredits || 0));
+    return entries.map(([label, v]) => ({
+      label: label.replace('Year ', 'Y'),
+      avg: v.avgCredits,
+      pct: Math.max(6, (v.avgCredits || 0) / max * 100)
+    }));
+  }
+
+  get overIntakeRows(): Array<{ code: string; name: string; state: string; variance: number }> {
+    return (this.summary?.overIntake || []) as Array<{ code: string; name: string; state: string; variance: number }>;
   }
 
   filterColleges() {
-    this.filteredColleges = this.colleges.filter(c =>
-      !this.searchCollege ||
-      c.name.toLowerCase().includes(this.searchCollege.toLowerCase()) ||
-      c.code.toLowerCase().includes(this.searchCollege.toLowerCase()) ||
-      c.state.toLowerCase().includes(this.searchCollege.toLowerCase())
+    const q = (this.searchCollege || '').trim().toLowerCase();
+    const result = this.colleges.filter(c =>
+      !q ||
+      c.name.toLowerCase().includes(q) ||
+      c.code.toLowerCase().includes(q) ||
+      c.state.toLowerCase().includes(q) ||
+      (c.city || '').toLowerCase().includes(q)
     );
+
+    if (this.sortKey) {
+      const dir = this.sortDir === 'asc' ? 1 : -1;
+      result.sort((a, b) => {
+        const ka = this.sortKey === 'approvedIntake' ? a.approvedIntake : a.actualEnrolment;
+        const kb = this.sortKey === 'approvedIntake' ? b.approvedIntake : b.actualEnrolment;
+        return (ka - kb) * dir;
+      });
+    }
+
+    this.filteredColleges = result;
+  }
+
+  toggleSort(key: string) {
+    if (this.sortKey === key) {
+      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortKey = key;
+      this.sortDir = 'desc';
+    }
+    this.filterColleges();
+  }
+
+  arrowFor(key: string): string {
+    if (this.sortKey !== key) return '';
+    return this.sortDir === 'asc' ? '▲' : '▼';
+  }
+
+  viewCollegeStudents(college: College) {
+    this.drillDownCollege = college;
+    this.drillDownStudents = [];
+    this.cdr.detectChanges();
+
+    this.apaarService.getStudents({ collegeId: college.id }).subscribe({
+      next: (res) => {
+        if (res && res.success) {
+          this.drillDownStudents = (res.data || []) as Student[];
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {
+        this.ui.showError('Student registry for this college could not be loaded.');
+      }
+    });
+  }
+
+  setCollegeStatus(college: College, action: 'activate' | 'suspend') {
+    this.apaarService.setCollegeStatus(college.id, action).subscribe({
+      next: (res) => {
+        if (res && res.success) {
+          college.active = action === 'activate';
+          this.ui.showToast(res.message || `Institution ${action === 'activate' ? 're-instated' : 'suspended'}.`);
+          this.filterColleges();
+          this.loadDashboard();
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.ui.showError(err?.error?.message || (err?.status === 0
+          ? 'Action could not reach the AICTE gateway.'
+          : 'Only the AICTE Super Admin can change institutional status.'));
+      }
+    });
+  }
+
+  initialsOf(name: string): string {
+    return (name || '').trim().split(/\s+/).map(p => p.charAt(0)).slice(0, 2).join('').toUpperCase();
+  }
+
+  avatarColor(name: string): string {
+    const palette = ['#0F2C61', '#059669', '#B45309', '#6D28D9', '#BE123D', '#0E7490'];
+    let hash = 0;
+    for (const ch of name || '') hash = (hash * 31 + ch.charCodeAt(0)) % 9973;
+    return palette[hash % palette.length];
   }
 
   downloadExcel() {
     this.apaarService.downloadExcelReport().subscribe({
       next: (blob) => {
-        this.saveBlob(blob, 'AICTE_National_Compliance_Report_2026.xlsx');
-        this.showToast('✅ Official AICTE National Compliance .xlsx report downloaded successfully!');
+        this.saveBlob(blob, 'AICTE_National_Compliance_Report_' + new Date().getFullYear() + '.xlsx');
+        this.showToast('✅ Official national compliance report (.xlsx) downloaded — includes summary, college compliance and the full student registry with photographs.');
       },
       error: () => {
         // Fallback client-side CSV compliance export
         const csvContent = this.generateComplianceCsv();
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        this.saveBlob(blob, 'AICTE_National_Compliance_Report_2026.csv');
-        this.showToast('✅ Official AICTE National Compliance Report (.csv) generated & downloaded!');
+        this.saveBlob(blob, 'AICTE_National_Compliance_Report_' + new Date().getFullYear() + '.csv');
+        this.showToast('⚠️ Backend export unavailable — a basic CSV report was generated instead.');
       }
     });
   }
@@ -540,39 +990,21 @@ export class AicteComponent implements OnInit {
 
   private generateComplianceCsv(): string {
     const headers = [
-      'College Code',
-      'College Name',
-      'City',
-      'State',
-      'Approved Intake',
-      'Actual Enrolment',
-      'Intake Variance',
-      'Supernumerary (TFW)',
-      'NRI Count',
-      'FN Count',
-      'Verified Count',
-      'Verification %',
-      'Regulatory Status'
+      'College Code', 'College Name', 'City', 'State', 'Approved Intake', 'Actual Enrolment',
+      'Intake Variance', 'Supernumerary (TFW)', 'NRI Count', 'FN Count', 'Verified Count',
+      'Verification %', 'Regulatory Status'
     ];
 
     const rows = this.colleges.map(c => {
       const variance = c.actualEnrolment - c.approvedIntake;
-      const pct = (c.verifiedCount / c.actualEnrolment * 100).toFixed(1) + '%';
-      const status = c.actualEnrolment > c.approvedIntake ? 'Under Audit' : 'Approved';
+      const pctStr = c.actualEnrolment > 0 ? (c.verifiedCount / c.actualEnrolment * 100).toFixed(1) + '%' : '0%';
+      const status = c.active === false ? 'Suspended' : (c.actualEnrolment > c.approvedIntake ? 'Under Audit' : 'Approved');
       return [
-        `"${c.code}"`,
-        `"${c.name}"`,
-        `"${c.city}"`,
-        `"${c.state}"`,
-        c.approvedIntake,
-        c.actualEnrolment,
+        `"${c.code}"`, `"${c.name}"`, `"${c.city}"`, `"${c.state}"`,
+        c.approvedIntake, c.actualEnrolment,
         variance > 0 ? `+${variance}` : variance,
-        c.supernumeraryQuota,
-        c.nriCount,
-        c.fnCount,
-        c.verifiedCount,
-        `"${pct}"`,
-        `"${status}"`
+        c.supernumeraryQuota, c.nriCount, c.fnCount, c.verifiedCount,
+        `"${pctStr}"`, `"${status}"`
       ].join(',');
     });
 
@@ -585,7 +1017,7 @@ export class AicteComponent implements OnInit {
     setTimeout(() => {
       this.exportToast = '';
       this.cdr.detectChanges();
-    }, 4000);
+    }, 5000);
   }
 
   printReport() {

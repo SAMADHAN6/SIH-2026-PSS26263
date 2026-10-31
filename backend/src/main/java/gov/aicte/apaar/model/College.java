@@ -1,6 +1,7 @@
 package gov.aicte.apaar.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "colleges")
@@ -18,6 +19,16 @@ public class College {
 
     private String state;
     private String city;
+
+    @Column(unique = true, length = 120)
+    private String email;
+
+    @Column(length = 64)
+    @JsonIgnore
+    private String passwordHash;
+
+    @Column(nullable = false)
+    private Boolean active = true;
 
     private Integer approvedIntake;
     private Integer actualEnrolment;
@@ -48,6 +59,7 @@ public class College {
         this.supernumeraryQuota = supernumeraryQuota;
         this.nriCount = nriCount;
         this.fnCount = fnCount;
+        this.active = true;
     }
 
     // Getters and Setters
@@ -65,6 +77,15 @@ public class College {
 
     public String getCity() { return city; }
     public void setCity(String city) { this.city = city; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
 
     public Integer getApprovedIntake() { return approvedIntake; }
     public void setApprovedIntake(Integer approvedIntake) { this.approvedIntake = approvedIntake; }

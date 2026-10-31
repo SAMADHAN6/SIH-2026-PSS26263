@@ -1,5 +1,4 @@
-/* AICTE Official Government Styling - Angular Material */
-@import '@angular/material/prebuilt-themes/indigo-pink.css';
+/* AICTE Official Government Styling */
 
 :root {
   --aicte-navy: #0F2C61;
@@ -45,6 +44,11 @@ body {
   background-color: #1A448A;
 }
 
+.gov-btn-primary:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+}
+
 .gov-btn-saffron {
   background: linear-gradient(to right, #F59E0B, #D97706);
   color: #0B1E40;
@@ -60,13 +64,48 @@ body {
   opacity: 0.95;
 }
 
+.gov-btn-saffron:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Avatar (initials) used across portals and reports */
+.initials-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+/* Responsive scroll for wide tables */
+@media (max-width: 768px) {
+  .gov-table, .registry-table {
+    font-size: 11px;
+  }
+}
+
 /* Print Styles */
 @media print {
-  .no-print {
+  .no-print,
+  .main-header,
+  .main-nav,
+  .top-utility-bar,
+  .main-footer,
+  .tricolor-stripe,
+  .bot-floating-widget,
+  .global-banner,
+  .global-toast {
     display: none !important;
   }
   .print-card {
     border: 2px solid #0F2C61 !important;
     box-shadow: none !important;
   }
+  .page-content { padding: 0 !important; }
+  body { background: #fff !important; }
 }

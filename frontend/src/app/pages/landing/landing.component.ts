@@ -1,12 +1,14 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
+import { ApaarService } from '../../services/apaar.service';
+import { I18nPipe } from '../../services/i18n.pipe';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, I18nPipe],
   template: `
     <div class="landing-container">
       <!-- AICTE Header Banner -->
@@ -14,12 +16,12 @@ import { Router, RouterModule } from '@angular/router';
         <div class="hero-inner">
           <div class="pill-badge">
             <span class="live-dot"></span>
-            <span class="sih-tag">SIH26263 • REGULATION BUREAU</span>
+            <span class="sih-tag">{{ 'landing.badge' | i18n }}</span>
             <span>Approval Process & Academic Data Synchronization 2026-2027</span>
           </div>
 
-          <h1 class="hero-title">One Nation, One Student ID</h1>
-          <h2 class="hero-subtitle">APAAR Verification Platform for AICTE-Approved Institutions</h2>
+          <h1 class="hero-title">{{ 'landing.title' | i18n }}</h1>
+          <h2 class="hero-subtitle">{{ 'landing.subtitle' | i18n }}</h2>
           <p class="hero-desc">
             National e-Governance architecture powered by <strong>DigiLocker & National Academic Depository (NAD)</strong> to audit approved intake, manage Supernumerary and NRI quotas, and intercept cross-institution duplicate admissions.
           </p>
@@ -43,7 +45,7 @@ import { Router, RouterModule } from '@angular/router';
             <div class="portal-card green-border" (click)="navigate('/aicte')">
               <div class="portal-icon green-icon">🛡️</div>
               <h3>AICTE Super Admin</h3>
-              <p>Pan-India state analytics, excess enrolment alerts, Kafka logs, and Apache POI Excel reports.</p>
+              <p>Pan-India state analytics, excess enrolment alerts, real-time duplicate detection, and official Excel reports.</p>
               <div class="card-footer text-green">National Dashboard ➔</div>
             </div>
           </div>
@@ -61,18 +63,17 @@ import { Router, RouterModule } from '@angular/router';
               <button type="submit" class="gov-btn-saffron">Verify Now</button>
             </form>
             <div class="demo-pills">
-              <span>Quick Test Presets:</span>
+              <span>{{ 'landing.try' | i18n }}</span>
               <button (click)="setDemo('123456789012')">Verified: <strong>123456789012</strong></button>
-              <button (click)="setDemo('100000000013')">Pending: <strong>100000000013</strong></button>
+              <button (click)="setDemo('APAAR10000003')">Pending: <strong>APAAR10000003</strong></button>
               <button (click)="setDemo('100000000005')">Duplicate: <strong>100000000005</strong></button>
               <button (click)="setDemo('100000000012')">Duplicate #2: <strong>100000000012</strong></button>
-              <button (click)="setDemo('APAAR12345678')">Legacy: <strong>APAAR12345678</strong></button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Institutional Notice Board (Inspired by Screenshot) -->
+      <!-- Institutional Notice Board -->
       <section class="notice-section">
         <div class="notice-inner">
           <div class="notice-col-left gov-card">
@@ -117,36 +118,38 @@ import { Router, RouterModule } from '@angular/router';
             <div class="support-card bg-blue-light">
               <h4>Live Video Support Facilitation:</h4>
               <p class="sub-text">Connect with AICTE Technical Officers for live onboarding and bulk upload guidance.</p>
-              <button class="gov-btn-primary full-btn" (click)="alertSupport()">Open Live Video Session</button>
+              <button class="gov-btn-primary full-btn" (click)="navigate('/student')">Open Verification Portal</button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- National Statistics -->
+      <!-- National Statistics (live from the APAAR national database) -->
       <section class="stats-section">
         <div class="stats-inner">
           <div class="stat-card">
-            <h2>9,840</h2>
-            <p>Approved Institutions</p>
-            <span class="stat-badge green">100% Onboarded</span>
+            <h2>{{ summary?.institutions ?? '—' }}</h2>
+            <p>Approved Institutions (Live Network)</p>
+            <span class="stat-badge green">Portal Access Active</span>
           </div>
           <div class="stat-card">
-            <h2>34.2 Lakh</h2>
+            <h2>{{ summary?.enrolled ?? '—' }}</h2>
             <p>Total Enrolled Students</p>
             <span class="stat-badge blue">AY 2026-27 Intake</span>
           </div>
           <div class="stat-card">
-            <h2>92.4%</h2>
+            <h2>{{ summary ? (summary.verifiedPct + '%') : '—' }}</h2>
             <p>APAAR Verified Records</p>
             <span class="stat-badge green">DigiLocker Synced</span>
           </div>
           <div class="stat-card">
-            <h2>14,210</h2>
+            <h2>{{ summary?.duplicates ?? '—' }}</h2>
             <p>Duplicates Intercepted</p>
             <span class="stat-badge red">Ghost Seats Blocked</span>
           </div>
         </div>
+        <p class="stats-note" *ngIf="statsLive">🟢 Live figures computed directly from the national APAAR database.</p>
+        <p class="stats-note offline" *ngIf="!statsLive">⏳ Connecting to the national gateway…</p>
       </section>
     </div>
   `,
@@ -178,7 +181,7 @@ import { Router, RouterModule } from '@angular/router';
     .demo-pills button { background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 11px; }
     .notice-section { padding: 40px 20px; max-width: 1100px; margin: 0 auto; }
     .notice-inner { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-    @media(max-width: 768px) { .notice-inner { grid-template-columns: 1fr; } }
+    @media(max-width: 768px) { .notice-inner { grid-template-columns: 1fr; } .hero-title { font-size: 30px; } .hero-subtitle { font-size: 20px; } }
     .notice-col-left, .notice-col-right { padding: 25px; }
     .notice-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 20px; }
     .notice-header h3 { font-size: 16px; font-weight: 700; color: #0F2C61; margin: 0; }
@@ -199,15 +202,35 @@ import { Router, RouterModule } from '@angular/router';
     .stat-card h2 { font-size: 32px; font-weight: 900; color: #0F2C61; margin: 0 0 5px; }
     .stat-card p { font-size: 12px; font-weight: 600; color: #64748b; margin: 0 0 10px; }
     .stat-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
+    .stats-note { text-align: center; font-size: 11px; color: #059669; margin: 18px 0 0; font-weight: 600; }
+    .stats-note.offline { color: #94a3b8; }
     .green { background: #d1fae5; color: #065f46; }
     .blue { background: #dbeafe; color: #1e40af; }
     .red { background: #fee2e2; color: #991b1b; }
   `]
 })
-export class LandingComponent {
+export class LandingComponent implements OnInit {
   searchId: string = '';
+  summary: any = null;
+  statsLive = false;
 
-  constructor(private router: Router) {}
+  constructor(private router: Router, private apaarService: ApaarService, private cdr: ChangeDetectorRef) {}
+
+  ngOnInit() {
+    this.apaarService.getPublicNationalSummary().subscribe({
+      next: (res) => {
+        if (res && res.success !== false && res.enrolled !== undefined) {
+          this.summary = res;
+          this.statsLive = true;
+          this.cdr.detectChanges();
+        }
+      },
+      error: () => {
+        this.statsLive = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
 
   navigate(path: string) {
     this.router.navigateByUrl(path);
@@ -222,9 +245,5 @@ export class LandingComponent {
     if (this.searchId.trim()) {
       this.router.navigate(['/student'], { queryParams: { id: this.searchId.trim() } });
     }
-  }
-
-  alertSupport() {
-    alert('Connecting to AICTE Live Video Support Facilitation Desk...');
   }
 }

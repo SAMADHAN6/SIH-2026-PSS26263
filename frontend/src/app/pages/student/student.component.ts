@@ -2,201 +2,85 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { ApaarService, Student } from '../../services/apaar.service';
+import { ApaarService } from '../../services/apaar.service';
+import { I18nPipe } from '../../services/i18n.pipe';
 import { timeout, catchError, of } from 'rxjs';
+
+interface PublicVerificationResult {
+  apaarId: string;
+  status: string;
+  collegeName: string;
+  course: string;
+  academicYear: number;
+  digilockerVerified: boolean;
+}
 
 @Component({
   selector: 'app-student',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, I18nPipe],
   template: `
     <div class="student-container">
       <div class="header-card gov-card no-print">
         <div class="header-left">
           <div class="avatar-badge">🎓</div>
           <div>
-            <h1>Student APAAR ID Verification Portal</h1>
-            <p>National Academic Depository (NAD) • Ministry of Education, Govt. of India</p>
+            <h1>{{ 'student.title' | i18n }}</h1>
+            <p>APAAR student registry demonstration</p>
           </div>
         </div>
-        <div class="security-pill">🔒 AES-256 Encrypted Session</div>
+        <div class="security-pill">Demo lookup only</div>
       </div>
 
       <!-- Lookup Form -->
       <div class="form-card gov-card no-print">
         <form (ngSubmit)="verify()" class="lookup-form">
-          <label>Enter 12-Digit APAAR ID / Academic Identifier</label>
+          <label>{{ 'student.enter' | i18n }}</label>
           <div class="input-row">
             <input
               type="text"
               [(ngModel)]="apaarInput"
               name="apaarInput"
-              placeholder="e.g. APAAR12345678 or APAAR10000003"
+              placeholder="e.g. APAAR12345678 or 100000000005"
               class="apaar-input"
             />
-            <button type="submit" class="gov-btn-primary" [disabled]="loading">
-              {{ loading ? 'Querying DigiLocker...' : 'Fetch Student Profile' }}
+            <button type="submit" class="gov-btn-primary" [disabled]="loading || !consentGiven">
+              {{ loading ? ('student.fetching' | i18n) : ('student.fetch' | i18n) }}
             </button>
           </div>
 
           <div class="preset-chips">
-            <span>Demo Chips:</span>
+            <span>{{ 'landing.try' | i18n }}</span>
             <button type="button" (click)="setPreset('123456789012')">Verified: 123456789012</button>
-            <button type="button" (click)="setPreset('100000000013')">Pending: 100000000013</button>
+            <button type="button" (click)="setPreset('APAAR10000003')">Pending: APAAR10000003</button>
             <button type="button" (click)="setPreset('100000000005')">Duplicate: 100000000005</button>
             <button type="button" (click)="setPreset('100000000012')">Duplicate #2: 100000000012</button>
-            <button type="button" (click)="setPreset('APAAR12345678')">Legacy: APAAR12345678</button>
           </div>
 
-          <div class="consent-row">
+          <div class="consent-row" [ngClass]="{ 'consent-required': !consentGiven }">
             <input type="checkbox" id="consent" [(ngModel)]="consentGiven" name="consent" />
             <label for="consent">
-              <strong>DPDP Statutory Consent:</strong> I hereby give my consent to share my APAAR data and Academic Bank of Credits (ABC) credentials with my admitted AICTE-approved institution.
+              <strong>{{ 'student.consent' | i18n }}:</strong> {{ 'student.consentText' | i18n }}
             </label>
           </div>
+          <p class="consent-hint" *ngIf="!consentGiven">This demo requires the checkbox, but it does not verify identity or legal consent. Do not enter real student data.</p>
         </form>
       </div>
 
       <!-- Error message -->
-      <div *ngIf="error" class="error-banner">
+      <div *ngIf="error" class="error-banner no-print">
         ⚠️ {{ error }}
       </div>
 
-      <!-- Student Record Display -->
+      <!-- Minimal, data-minimized demo lookup result -->
       <div *ngIf="student" class="profile-section">
-        <!-- Verification Timeline -->
-        <div class="timeline-card gov-card no-print">
-          <h3>Verification Lifecycle Timeline</h3>
-          <div class="timeline-grid">
-            <div class="step-box verified">
-              <span class="step-num">✓</span>
-              <div>
-                <strong>1. Aadhaar e-KYC</strong>
-                <p>Linked to Aadhaar ···{{ student.aadhaarLast4 }}</p>
-              </div>
-            </div>
-            <div class="step-box verified">
-              <span class="step-num">✓</span>
-              <div>
-                <strong>2. ABC Depository</strong>
-                <p>{{ student.abcCredits }} Credits Banked</p>
-              </div>
-            </div>
-            <div class="step-box" [ngClass]="student.status">
-              <span class="step-num">{{ student.status === 'verified' ? '✓' : student.status === 'duplicate' ? '✕' : '⏳' }}</span>
-              <div>
-                <strong>3. College Intake Audit</strong>
-                <p>{{ student.status === 'verified' ? 'Seat Approved' : student.status === 'duplicate' ? 'Duplicate Conflict' : 'Pending Review' }}</p>
-              </div>
-            </div>
-            <div class="step-box" [ngClass]="student.status === 'verified' ? 'verified' : 'pending'">
-              <span class="step-num">🏛️</span>
-              <div>
-                <strong>4. AICTE Central Ledger</strong>
-                <p>{{ student.status === 'verified' ? 'Permanent Record Stored' : 'Awaiting Final Sync' }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Official Verifiable Credential Pass -->
-        <div class="pass-card gov-card print-card">
-          <div class="pass-header">
-            <div>
-              <span class="sub-label">Official Verifiable Academic Credential Pass</span>
-              <h2>All India Council for Technical Education</h2>
-              <p>National Academic Depository (NAD) • DigiLocker & NAD Verified</p>
-            </div>
-            <div class="badge-status" [ngClass]="student.status">
-              {{ student.status.toUpperCase() }}
-            </div>
-          </div>
-
-          <div class="pass-body">
-            <div class="details-col">
-              <div class="name-row">
-                <div>
-                  <span class="label">STUDENT FULL NAME</span>
-                  <div class="name-val">{{ student.name }}</div>
-                </div>
-                <div>
-                  <span class="label">APAAR ID NUMBER</span>
-                  <div class="id-val">{{ student.apaarId }}</div>
-                </div>
-              </div>
-
-              <div class="grid-details">
-                <div class="detail-cell">
-                  <span>Enrolment / Roll No</span>
-                  <strong>{{ student.enrollmentNo || '2024-ADM-092' }}</strong>
-                </div>
-                <div class="detail-cell">
-                  <span>Date of Birth</span>
-                  <strong>{{ student.dob }}</strong>
-                </div>
-                <div class="detail-cell">
-                  <span>Gender</span>
-                  <strong>{{ student.gender }}</strong>
-                </div>
-                <div class="detail-cell">
-                  <span>Admitted Course</span>
-                  <strong>{{ student.course }}</strong>
-                </div>
-                <div class="detail-cell">
-                  <span>Current Year</span>
-                  <strong>Year {{ student.academicYear }}</strong>
-                </div>
-                <div class="detail-cell">
-                  <span>Admission Category</span>
-                  <strong class="cat-text">{{ student.category }}</strong>
-                </div>
-                <div class="detail-cell">
-                  <span>ABC Credits</span>
-                  <strong class="credits-text">{{ student.abcCredits }} Credits</strong>
-                </div>
-                <div class="detail-cell">
-                  <span>Class 10th Score</span>
-                  <strong>{{ student.tenthPercent }}%</strong>
-                </div>
-                <div class="detail-cell">
-                  <span>Class 12th Score</span>
-                  <strong>{{ student.twelfthPercent }}%</strong>
-                </div>
-              </div>
-
-              <div class="college-cell">
-                <span>Admitted Institution</span>
-                <strong>{{ student.collegeName }}</strong>
-                <p>AICTE Code: {{ student.collegeId }} • State: {{ student.state }}</p>
-              </div>
-
-              <div *ngIf="student.duplicateCollegeName" class="conflict-cell">
-                ⚠️ <strong>Duplicate Enrolment Anomaly Flagged:</strong> {{ student.flagReason }}
-                <p>Conflicting Institution: {{ student.duplicateCollegeName }} ({{ student.duplicateCollegeId }})</p>
-              </div>
-            </div>
-
-            <!-- QR Code Seal -->
-            <div class="qr-col">
-              <span class="qr-title">Cryptographic QR Seal</span>
-              <div class="qr-box">
-                <div class="qr-sim">QR: {{ student.apaarId }}</div>
-              </div>
-              <p class="hash-text">SHA-256: 4f98...e1b2</p>
-
-              <div class="action-buttons no-print">
-                <button (click)="print()" class="gov-btn-primary full-btn">🖨️ Print Pass</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- SIH Requirement 10 -->
-          <div class="pass-footer">
-            <span>
-              AICTE Compliance Clause 10: <strong>APAAR ID [{{ student.apaarId }}] & Student ID [{{ student.enrollmentNo }}]</strong> dual imprint enabled for certificates.
-            </span>
-            <span>Ministry of Education, Govt of India</span>
-          </div>
+        <div class="pass-card gov-card">
+          <h2>Demo lookup result</h2>
+          <p>This is a limited match from the local demo registry, not a DigiLocker identity verification or official credential.</p>
+          <p><strong>Status:</strong> {{ student.status | uppercase }}</p>
+          <p><strong>Institution:</strong> {{ student.collegeName }}</p>
+          <p><strong>Course:</strong> {{ student.course }} · Year {{ student.academicYear }}</p>
+          <p *ngIf="student.digilockerVerified"><strong>Record flag:</strong> marked verified in demo data only.</p>
         </div>
       </div>
     </div>
@@ -213,9 +97,11 @@ import { timeout, catchError, of } from 'rxjs';
     .lookup-form label { display: block; font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 8px; }
     .input-row { display: flex; gap: 10px; }
     .apaar-input { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: monospace; font-size: 14px; }
-    .preset-chips { display: flex; gap: 8px; margin: 12px 0; font-size: 11px; align-items: center; }
+    .preset-chips { display: flex; gap: 8px; margin: 12px 0; font-size: 11px; align-items: center; flex-wrap: wrap; }
     .preset-chips button { background: #f8fafc; border: 1px solid #cbd5e1; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
     .consent-row { display: flex; gap: 8px; font-size: 12px; color: #475569; border-top: 1px solid #f1f5f9; padding-top: 12px; margin-top: 12px; }
+    .consent-row.consent-required label { color: #b45309; }
+    .consent-hint { font-size: 11px; color: #b45309; margin: 6px 0 0; font-weight: 600; }
     .error-banner { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 14px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; }
     .timeline-card { padding: 20px; margin-bottom: 20px; }
     .timeline-card h3 { font-size: 14px; font-weight: 700; color: #475569; margin: 0 0 15px; }
@@ -235,12 +121,14 @@ import { timeout, catchError, of } from 'rxjs';
     .badge-status.duplicate { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid #f87171; }
     .badge-status.pending { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid #fbbf24; }
     .pass-body { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; padding: 25px; }
-    @media(max-width: 768px) { .pass-body { grid-template-columns: 1fr; } }
-    .name-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 15px; }
-    .label { font-size: 10px; font-weight: 700; color: #94a3b8; }
-    .name-val { font-size: 20px; font-weight: 800; color: #0F2C61; }
-    .id-val { font-size: 16px; font-family: monospace; font-weight: 800; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 4px; }
+    @media(max-width: 768px) { .pass-body { grid-template-columns: 1fr; } .input-row { flex-direction: column; } }
+    .identity-row { display: flex; gap: 16px; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 14px; margin-bottom: 15px; }
+    .pass-photo { border: 3px solid #e2e8f0; }
+    .label { font-size: 10px; font-weight: 700; color: #94a3b8; display: block; }
+    .name-val { font-size: 20px; font-weight: 800; color: #0F2C61; margin-bottom: 6px; }
+    .id-val { font-size: 15px; font-family: monospace; font-weight: 800; color: #b45309; background: #fef3c7; padding: 2px 8px; border-radius: 4px; display: inline-block; }
     .grid-details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+    @media(max-width: 640px) { .grid-details { grid-template-columns: repeat(2, 1fr); } }
     .detail-cell { background: #f8fafc; padding: 8px; border-radius: 6px; font-size: 11px; }
     .detail-cell span { display: block; font-size: 9px; color: #64748b; text-transform: uppercase; }
     .detail-cell strong { font-size: 12px; color: #1e293b; }
@@ -252,19 +140,20 @@ import { timeout, catchError, of } from 'rxjs';
     .college-cell p { margin: 2px 0 0; color: #64748b; }
     .conflict-cell { background: #fee2e2; border: 1px solid #fca5a5; padding: 10px; border-radius: 8px; font-size: 11px; color: #991b1b; }
     .qr-col { text-align: center; border-left: 1px solid #f1f5f9; padding-left: 20px; }
+    @media(max-width: 768px) { .qr-col { border-left: none; padding-left: 0; border-top: 1px solid #f1f5f9; padding-top: 15px; } }
     .qr-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; }
     .qr-box { width: 130px; height: 130px; border: 2px solid #0F2C61; margin: 10px auto; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #f8fafc; }
-    .qr-sim { font-family: monospace; font-size: 10px; color: #0F2C61; font-weight: bold; }
-    .hash-text { font-family: monospace; font-size: 10px; color: #94a3b8; margin: 0 0 15px; }
-    .pass-footer { background: #f1f5f9; padding: 10px 20px; font-size: 11px; color: #475569; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; }
+    .hash-text { font-family: monospace; font-size: 9px; color: #64748b; margin: 4px 0 0; word-break: break-all; }
+    .hash-note { font-size: 9px; color: #94a3b8; margin: 4px 0 12px; }
+    .pass-footer { background: #f1f5f9; padding: 10px 20px; font-size: 11px; color: #475569; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; flex-wrap: wrap; gap: 6px; }
   `]
 })
 export class StudentComponent implements OnInit {
   apaarInput: string = '';
   loading: boolean = false;
-  student: Student | null = null;
+  student: PublicVerificationResult | null = null;
   error: string | null = null;
-  consentGiven: boolean = true;
+  consentGiven: boolean = false;
 
   constructor(
     private apaarService: ApaarService,
@@ -281,141 +170,9 @@ export class StudentComponent implements OnInit {
     });
   }
 
-  private fallbackStudents: Student[] = [
-    {
-      apaarId: '123456789012',
-      name: 'Aarav Sharma',
-      course: 'B.Tech Computer Science & Engineering',
-      academicYear: 3,
-      category: 'General',
-      abcCredits: 96,
-      admissionDate: '2022-08-16',
-      status: 'verified',
-      enrollmentNo: '2022-CSE-001',
-      dob: '2004-05-14',
-      gender: 'Male',
-      mobile: '+91 98765 43210',
-      aadhaarLast4: '4829',
-      collegeId: 'COL001',
-      collegeName: 'Delhi Institute of Engineering & Technology',
-      tenthPercent: 94.6,
-      twelfthPercent: 92.4,
-      digilockerVerified: true,
-      state: 'Delhi'
-    },
-    {
-      apaarId: '100000000005',
-      name: 'Mohammad Farhan Akhtar',
-      course: 'B.Tech Mechanical Engineering',
-      academicYear: 3,
-      category: 'General',
-      abcCredits: 88,
-      admissionDate: '2022-08-14',
-      status: 'duplicate',
-      enrollmentNo: '2022-ME-089',
-      dob: '2004-07-12',
-      gender: 'Male',
-      mobile: '+91 98112 34567',
-      aadhaarLast4: '5087',
-      collegeId: 'COL001',
-      collegeName: 'Delhi Institute of Engineering & Technology',
-      tenthPercent: 84.0,
-      twelfthPercent: 82.5,
-      digilockerVerified: true,
-      state: 'Delhi',
-      duplicateCollegeName: 'Uttar Pradesh Council of Technology',
-      duplicateCollegeId: 'COL005',
-      flagReason: 'Simultaneous regular enrollment active at UP Council of Technology under UID UP-2022-892'
-    },
-    {
-      apaarId: '100000000013',
-      name: 'Rajesh Kumar',
-      course: 'B.Tech Computer Science & Engineering',
-      academicYear: 1,
-      category: 'Supernumerary (TFW)',
-      abcCredits: 30,
-      admissionDate: '2022-08-15',
-      status: 'pending',
-      enrollmentNo: '2022-CSE-145',
-      dob: '2004-09-18',
-      gender: 'Male',
-      mobile: '+91 98110 55443',
-      aadhaarLast4: '7741',
-      collegeId: 'COL001',
-      collegeName: 'Delhi Institute of Engineering & Technology',
-      tenthPercent: 89.4,
-      twelfthPercent: 88.0,
-      digilockerVerified: false,
-      state: 'Delhi'
-    },
-    {
-      apaarId: '100000000012',
-      name: 'Ananya Banerjee',
-      course: 'B.Tech Computer Science & Engineering',
-      academicYear: 1,
-      category: 'General',
-      abcCredits: 30,
-      admissionDate: '2024-08-01',
-      status: 'duplicate',
-      enrollmentNo: '2024-CSE-112',
-      dob: '2005-08-14',
-      gender: 'Female',
-      mobile: '+91 98310 99887',
-      aadhaarLast4: '3984',
-      collegeId: 'COL001',
-      collegeName: 'Delhi Institute of Engineering & Technology',
-      tenthPercent: 96.0,
-      twelfthPercent: 94.2,
-      digilockerVerified: true,
-      state: 'Delhi',
-      duplicateCollegeName: 'Bangalore Technical & Science Academy',
-      duplicateCollegeId: 'COL003',
-      flagReason: 'Dual enrolment recorded across Delhi and Karnataka colleges in AY 2024-25'
-    },
-    {
-      apaarId: 'APAAR10000003',
-      name: 'Rohan Deshmukh',
-      course: 'B.Tech Electronics & Communication',
-      academicYear: 2,
-      category: 'Supernumerary (TFW)',
-      abcCredits: 64,
-      admissionDate: '2023-08-20',
-      status: 'pending',
-      enrollmentNo: '2023-ECE-044',
-      dob: '2005-02-18',
-      gender: 'Male',
-      mobile: '+91 97654 32189',
-      aadhaarLast4: '6234',
-      collegeId: 'COL002',
-      collegeName: 'Maharashtra National Institute of Technology',
-      tenthPercent: 88.5,
-      twelfthPercent: 86.2,
-      digilockerVerified: false,
-      state: 'Maharashtra'
-    }
-  ];
-
   setPreset(id: string) {
     this.apaarInput = id;
     this.verify();
-  }
-
-  findLocal(query: string): Student | null {
-    const q = (query || '').trim().toLowerCase();
-    // Handle aliases
-    if (q === 'apaar12345678' || q === '123456789012') {
-      return this.fallbackStudents.find(s => s.apaarId === '123456789012') || null;
-    }
-    if (q === 'apaar10000005' || q === '100000000005') {
-      return this.fallbackStudents.find(s => s.apaarId === '100000000005') || null;
-    }
-    if (q === 'apaar10000012' || q === '100000000012') {
-      return this.fallbackStudents.find(s => s.apaarId === '100000000012') || null;
-    }
-    if (q === 'apaar10000013' || q === '100000000013') {
-      return this.fallbackStudents.find(s => s.apaarId === '100000000013') || null;
-    }
-    return this.fallbackStudents.find(s => s.apaarId.toLowerCase() === q || s.apaarId.toLowerCase().includes(q)) || null;
   }
 
   verify() {
@@ -425,43 +182,30 @@ export class StudentComponent implements OnInit {
       return;
     }
 
-    this.error = null;
-
-    // INSTANT LOCAL RESOLUTION:
-    // When clicking presets (e.g. Duplicate: 100000000005) or entering known demo IDs,
-    // show the record immediately without waiting for slow backend/Render spin-up!
-    const local = this.findLocal(rawInput);
-    if (local) {
-      this.student = { ...local };
-      this.loading = false;
+    // The checkbox is demo UX only. It is not a production consent proof.
+    if (!this.consentGiven) {
+      this.error = 'Confirm the demo consent checkbox before running this limited lookup.';
+      this.student = null;
       this.cdr.detectChanges();
-
-      // Silent non-blocking background refresh if backend is alive
-      this.apaarService.verifyApaar(rawInput).pipe(
-        timeout(1200),
-        catchError(() => of(null))
-      ).subscribe(res => {
-        if (res && res.success && res.data) {
-          this.student = res.data;
-          this.cdr.detectChanges();
-        }
-      });
       return;
     }
 
-    // For custom IDs not in presets, query backend with a fast 2.0s timeout
+    this.error = null;
+
     this.loading = true;
     this.student = null;
     this.cdr.detectChanges();
 
-    this.apaarService.verifyApaar(rawInput).pipe(
-      timeout(2000),
+    this.apaarService.verifyApaar(rawInput, this.consentGiven).pipe(
+      timeout(2500),
       catchError(() => of(null))
     ).subscribe({
       next: (res) => {
         this.loading = false;
         if (res && res.success && res.data) {
-          this.student = res.data;
+          this.applyStudent(res.data);
+        } else if (res === null) {
+          this.error = 'The national gateway is unreachable right now. Please ensure the backend server is running and try again.';
         } else {
           this.error = 'No student record found matching APAAR ID: ' + rawInput + '. Please verify with institution.';
         }
@@ -470,7 +214,7 @@ export class StudentComponent implements OnInit {
     });
   }
 
-  print() {
-    window.print();
+  private applyStudent(student: PublicVerificationResult) {
+    this.student = student;
   }
 }

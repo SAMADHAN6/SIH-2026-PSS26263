@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { SessionService } from './session.service';
 
 export interface Student {
   id?: number;
@@ -34,6 +35,8 @@ export interface College {
   code: string;
   state: string;
   city: string;
+  email?: string;
+  active?: boolean;
   approvedIntake: number;
   actualEnrolment: number;
   verifiedCount: number;
@@ -49,57 +52,142 @@ export interface College {
 })
 export class ApaarService {
   private get baseUrl(): string {
-    if (typeof window !== 'undefined') {
-      const customUrl = (window as any).API_URL || localStorage.getItem('API_URL');
-      if (customUrl) return customUrl;
-      const host = window.location.hostname;
-      if (host !== 'localhost' && host !== '127.0.0.1') {
-        return 'https://apaar-backend.onrender.com/api';
-      }
+    if (typeof window === 'undefined') return 'http://localhost:8085/api';
+
+    const customUrl = (window as any).API_URL || localStorage.getItem('API_URL');
+    if (customUrl) return customUrl;
+
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1';
+
+    if (isLocal) {
+      return 'http://localhost:8085/api';
     }
-    return 'http://localhost:8085/api';
+
+    // When the app itself is hosted on the Render frontend domain, its nginx
+    // already proxies /api to the backend. Same-origin is always the best choice.
+    if (window.location.hostname.includes('onrender.com')) {
+      return 'https://apaar-backend.onrender.com/api';
+    }
+
+    // Any other host (LAN IP demo, dockerised nginx, etc.) -> same-origin proxy.
+    return `${window.location.origin}/api`;
   }
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private session: SessionService) {}
 
-  verifyApaar(apaarId: string): Observable<any> {
-    return this.http.get(`${this.baseUrl}/verify/${encodeURIComponent(apaarId)}`);
+  private authHeaders(): { headers?: HttpHeaders } {
+    const token = this.session.token;
+    return token ? { headers: new HttpHeaders({ 'X-Auth-Token': token }) } : {};
   }
 
-  updateStatus(apaarId: string, status: string, actorEmail: string = 'college@aicte.ac.in', role: string = 'COLLEGE_ADMIN'): Observable<any> {
-    return this.http.post(`${this.baseUrl}/verify/${encodeURIComponent(apaarId)}/status`, {
-      status,
-      actorEmail,
-      role,
-    });
+  // ---------------- Verification (public) ----------------
+
+  verifyApaar(apaarId: string, consent = true): Observable<any> {
+    const qs = consent ? '?consent=true' : '';
+    return this.http.get(`${this.baseUrl}/verify/${encodeURIComponent(apaarId)}${qs}`);
   }
 
-  getCollegeStats(collegeId: string = 'COL001'): Observable<any> {
-    return this.http.get(`${this.baseUrl}/college/stats?collegeId=${collegeId}`);
+  // ---------------- Authentication ----------------
+
+  collegeLogin(email: string, password: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/auth/college-login`, { email, password });
   }
 
-  getStudents(params?: any): Observable<any> {
+  googleLogin(email: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/auth/google-login`, { email });
+  }
+
+  adminLogin(email: string, password: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/auth/admin-login`, { email, password });
+  }
+
+  registerCollege(payload: {
+    pid?: string; name: string; email: string; password: string;
+    state?: string; city?: string; approvedIntake?: number;
+  }): Observable<any> {
+    return this.http.post(`${this.baseUrl}/auth/register`, payload);
+  }
+
+  logout(): Observable<any> {
+    return this.http.post(`${this.baseUrl}/auth/logout`, {}, this.authHeaders());
+  }
+
+  // ---------------- Status mutations (authenticated) ----------------
+
+  updateStatus(apaarId: string, status: string): Observable<any> {
+    return this.http.post(
+      `${this.baseUrl}/verify/${encodeURIComponent(apaarId)}/status`,
+      { status },
+      this.authHeaders()
+    );
+  }
+
+  // ---------------- College portal ----------------
+
+  getCollegeStats(collegeId: string): Observable<any> {
+    return this.http.get(
+      `${this.baseUrl}/college/stats?collegeId=${encodeURIComponent(collegeId)}`,
+      this.authHeaders()
+    );
+  }
+
+  getCollegeAlerts(collegeId: string): Observable<any> {
+    return this.http.get(`${this.baseUrl}/college/alerts?collegeId=${encodeURIComponent(collegeId)}`, this.authHeaders());
+  }
+
+  getStudents(params?: Record<string, string | number>): Observable<any> {
     let url = `${this.baseUrl}/college/students`;
-    if (params) {
-      const q = new URLSearchParams(params).toString();
-      url += `?${q}`;
+    if (params && Object.keys(params).length) {
+      const qs = new URLSearchParams(
+        Object.entries(params).reduce<Record<string, string>>((acc, [k, v]) => {
+          acc[k] = String(v);
+          return acc;
+        }, {})
+      ).toString();
+      url += `?${qs}`;
     }
-    return this.http.get(url);
+    return this.http.get(url, this.authHeaders());
   }
 
-  bulkUpload(students: Student[]): Observable<any> {
-    return this.http.post(`${this.baseUrl}/college/bulk-upload`, students);
+  bulkUpload(students: Partial<Student>[]): Observable<any> {
+    return this.http.post(`${this.baseUrl}/college/bulk-upload`, students, this.authHeaders());
+  }
+
+  // ---------------- AICTE portal ----------------
+
+  getNationalSummary(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/aicte/summary`, this.authHeaders());
+  }
+
+  getPublicNationalSummary(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/aicte/public-summary`);
   }
 
   getAllColleges(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/aicte/colleges`);
+    return this.http.get(`${this.baseUrl}/aicte/colleges`, this.authHeaders());
+  }
+
+  getDuplicateAlerts(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/aicte/duplicate-alerts`, this.authHeaders());
+  }
+
+  setCollegeStatus(collegeId: string, action: 'activate' | 'suspend'): Observable<any> {
+    return this.http.patch(
+      `${this.baseUrl}/aicte/colleges/${encodeURIComponent(collegeId)}/status`,
+      { action },
+      this.authHeaders()
+    );
   }
 
   getAuditLogs(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/aicte/logs`);
+    return this.http.get(`${this.baseUrl}/aicte/logs`, this.authHeaders());
   }
 
   downloadExcelReport(): Observable<Blob> {
-    return this.http.get(`${this.baseUrl}/aicte/export-excel`, { responseType: 'blob' });
+    return this.http.get(`${this.baseUrl}/aicte/export-excel`, {
+      responseType: 'blob',
+      ...this.authHeaders()
+    });
   }
 }

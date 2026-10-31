@@ -28,14 +28,7 @@ public class ApaarVerificationService {
      * Verifies APAAR ID against National Academic Depository (NAD) / DigiLocker
      * Simulates 1 second delay as required by SIH Problem Statement specifications
      */
-    public Optional<Student> verifyApaarId(String apaarId) {
-        try {
-            // Simulated 1-second DigiLocker gateway handshake
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
+    public Optional<Student> verifyApaarId(String apaarId, String sourceIp) {
         String query = apaarId.trim();
         Optional<Student> studentOpt = studentRepository.findByApaarIdIgnoreCase(query);
 
@@ -60,7 +53,7 @@ public class ApaarVerificationService {
                     "VERIFICATION_QUERY",
                     "student_portal@aicte.gov.in",
                     "STUDENT",
-                    "103.24.188.1"
+                    sourceIp
             ));
 
             if ("duplicate".equalsIgnoreCase(student.getStatus())) {
@@ -71,7 +64,7 @@ public class ApaarVerificationService {
         return studentOpt;
     }
 
-    public Student updateStudentStatus(String apaarId, String newStatus, String actor, String role) {
+    public Student updateStudentStatus(String apaarId, String newStatus, String actor, String role, String sourceIp) {
         Student student = studentRepository.findByApaarIdIgnoreCase(apaarId)
                 .orElseThrow(() -> new IllegalArgumentException("Student record not found for APAAR ID: " + apaarId));
 
@@ -88,7 +81,7 @@ public class ApaarVerificationService {
                 "STATUS_UPDATED_" + newStatus.toUpperCase(),
                 actor != null ? actor : "admin@aicte.ac.in",
                 role != null ? role : "COLLEGE_ADMIN",
-                "49.36.12.8"
+                sourceIp
         ));
 
         return saved;

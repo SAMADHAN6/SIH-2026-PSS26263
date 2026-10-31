@@ -1,19 +1,22 @@
 <!-- Tricolor Stripe -->
 <div class="tricolor-stripe"></div>
 
-<!-- Top Utility Bar matching aicte.gov.in screenshot -->
+<!-- Top Utility Bar matching aicte.gov.in -->
 <div class="top-utility-bar">
   <div class="utility-inner">
     <div class="utility-left">
       <span class="date-str">{{ currentDateStr }}</span>
       <span class="sep">|</span>
-      <span>🔊 Screen Reader Access</span>
+      <span>🔊 {{ 'util.screenreader' | i18n }}</span>
       <span class="sep">|</span>
-      <span>Smart Automation • SIH26263 • AICTE Regulation Bureau</span>
+      <span>{{ 'util.smarautomation' | i18n }}</span>
     </div>
     <div class="utility-right">
-      <span class="lang-tag">A/आ हिन्दी</span>
-      <a routerLink="/college" class="web-login-pill">🔒 Web Portal Login</a>
+      <button type="button" class="lang-toggle" (click)="toggleLang()">
+        {{ i18n.isHindi ? 'A English' : 'आ हिन्दी' }}
+      </button>
+      <a routerLink="/college" class="web-login-pill" *ngIf="!signedInAs">🔒 {{ 'nav.login' | i18n }}</a>
+      <span class="signed-in-pill" *ngIf="signedInAs">👤 {{ signedInAs }}</span>
     </div>
   </div>
 </div>
@@ -50,16 +53,28 @@
 <nav class="main-nav">
   <div class="nav-inner">
     <div class="nav-links">
-      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Home</a>
-      <a routerLink="/student" routerLinkActive="active">Student Portal <span class="nav-badge">Direct APAAR</span></a>
-      <a routerLink="/college" routerLinkActive="active">College Admin <span class="nav-badge">Intake Audit</span></a>
-      <a routerLink="/aicte" routerLinkActive="active">AICTE Super Admin <span class="nav-badge">Pan-India</span></a>
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">{{ 'nav.home' | i18n }}</a>
+      <a *ngFor="let p of navPortals" [routerLink]="p.route" routerLinkActive="active">
+        {{ p.labelKey | i18n }} <span class="nav-badge">{{ p.badgeKey | i18n }}</span>
+      </a>
     </div>
-    <div>
-      <a routerLink="/student" class="verify-btn">✨ Verify APAAR ID</a>
+    <div class="nav-right-group">
+      <button *ngIf="signedInAs" type="button" class="logout-pill" (click)="signOut()">{{ 'nav.logout' | i18n }}</button>
+      <a routerLink="/student" class="verify-btn">✨ {{ 'nav.verify' | i18n }}</a>
     </div>
   </div>
 </nav>
+
+<!-- Global connection banner -->
+<div class="global-banner" *ngIf="ui.banner() as b" [ngClass]="'banner-' + b.type">
+  <span>{{ b.type === 'error' ? '⚠️' : 'ℹ️' }} {{ b.text }}</span>
+  <button type="button" (click)="ui.clearError()" *ngIf="b.type === 'error'">✕</button>
+</div>
+
+<!-- Global toast -->
+<div class="global-toast" *ngIf="ui.toast() as t" [ngClass]="'toast-' + t.type">
+  {{ t.type === 'success' ? '✅' : 'ℹ️' }} {{ t.text }}
+</div>
 
 <!-- Main Page Content -->
 <main class="page-content">
@@ -78,8 +93,8 @@
       <div class="bot-head-left">
         <span>🤖</span>
         <div>
-          <h4>AICTE Sahayak Virtual Helpdesk</h4>
-          <small>Government AI Student & Institutional Assistant</small>
+          <h4>{{ 'bot.title' | i18n }}</h4>
+          <small>{{ 'bot.subtitle' | i18n }}</small>
         </div>
       </div>
       <button (click)="toggleBot()" class="bot-close">✕</button>
@@ -92,14 +107,12 @@
     </div>
 
     <div class="bot-faq">
-      <button (click)="sendBotMessage('What is APAAR ID?')">What is APAAR ID?</button>
-      <button (click)="sendBotMessage('How are duplicate enrolments handled?')">Duplicate Detection</button>
-      <button (click)="sendBotMessage('What is the approved intake rule?')">Intake Quotas</button>
+      <button *ngFor="let chip of faqChips" (click)="sendBotMessage(chip.query)">{{ chip.key | i18n }}</button>
     </div>
 
     <div class="bot-input-row">
-      <input type="text" [(ngModel)]="botInput" (keyup.enter)="sendBotMessage()" placeholder="Ask Sahayak anything..." />
-      <button (click)="sendBotMessage()">Send</button>
+      <input type="text" [(ngModel)]="botInput" (keyup.enter)="sendBotMessage()" [placeholder]="'bot.placeholder' | i18n" />
+      <button (click)="sendBotMessage()">{{ 'bot.send' | i18n }}</button>
     </div>
   </div>
 </div>
@@ -109,13 +122,13 @@
   <!-- Security Bar -->
   <div class="security-strip">
     <div class="sec-inner">
-      <span>🛡️ SECURITY & REGULATORY ARCHITECTURE:</span>
+      <span>🛠️ DEMONSTRATION CONTROLS:</span>
       <div class="sec-badges">
-        <span class="sec-pill">🔒 AES-256 Encrypted</span>
-        <span class="sec-pill">✅ Consent-Based Access (DPDP Act)</span>
-        <span class="sec-pill">📜 Audit Logged Ledger (JPA)</span>
-        <span class="sec-pill">📡 Apache Kafka Message Broker</span>
-        <span class="sec-pill">📊 Apache POI Excel Engine</span>
+        <span class="sec-pill">🔒 Token-Protected Sessions</span>
+        <span class="sec-pill">☑️ Demo consent checkbox</span>
+        <span class="sec-pill">📜 Audit log</span>
+        <span class="sec-pill">📡 Duplicate flags</span>
+        <span class="sec-pill">📊 Automated Official Reports</span>
       </div>
     </div>
   </div>
@@ -123,12 +136,12 @@
   <div class="footer-inner">
     <div class="footer-col">
       <h3>All India Council for Technical Education</h3>
-      <p class="reg-text">Regulation Bureau • SIH Problem Statement #26263</p>
+      <p class="reg-text">Regulation Bureau • Problem Statement ID 26263</p>
       <p class="addr">Nelson Mandela Marg, Vasant Kunj, New Delhi - 110070.</p>
     </div>
 
     <div class="footer-col">
-      <h4>Platform Portals</h4>
+      <h4>{{ 'footer.portals' | i18n }}</h4>
       <ul>
         <li><a routerLink="/student">Student APAAR ID Verification</a></li>
         <li><a routerLink="/college">College Admin & Intake Audit</a></li>
@@ -137,20 +150,20 @@
     </div>
 
     <div class="footer-col">
-      <h4>Regulatory Standards</h4>
+      <h4>{{ 'footer.standards' | i18n }}</h4>
       <ul>
-        <li>DigiLocker & NAD Verified</li>
-        <li>DPDP Act 2023 Compliant</li>
-        <li>AICTE APH 2026-27 Norms</li>
-        <li>Automated Anomaly Audit</li>
+        <li>DigiLocker integration: not connected</li>
+        <li>Production consent provider: not configured</li>
+        <li>Sample AICTE-style demonstration</li>
+        <li>Not for real student records</li>
       </ul>
     </div>
 
     <div class="footer-col">
       <div class="sih-box">
         <div class="sih-head">
-          <span>Smart India Hackathon</span>
-          <span class="sih-code">SIH26263</span>
+          <span>APAAR Verify</span>
+          <span class="sih-code">PS 26263</span>
         </div>
         <p>APAAR ID-Based Student Data Management Platform</p>
         <small>Theme: Smart Automation</small>
