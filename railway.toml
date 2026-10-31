@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd backend && ./mvnw clean package -DskipTests -q"
+
+[deploy]
+startCommand = "java -jar backend/target/*.jar"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[environments.production.variables]
+SPRING_PROFILES_ACTIVE = "postgres"

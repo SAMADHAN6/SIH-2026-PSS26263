@@ -4,6 +4,7 @@ import gov.aicte.apaar.model.DuplicateAlertEvent;
 import gov.aicte.apaar.model.Student;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -16,16 +17,19 @@ public class KafkaEventPublisherService {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaEventPublisherService.class);
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    // Optional — app runs fine without a Kafka broker (Railway / local dev)
+    @Autowired(required = false)
+    private KafkaTemplate<String, String> kafkaTemplate;
 
     @Value("${aicte.kafka.duplicate-topic:aicte.apaar.duplicate-events}")
     private String topicName;
 
-    public KafkaEventPublisherService(KafkaTemplate<String, String> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
-    }
-
     public void publishDuplicateAnomaly(Student student) {
+        if (kafkaTemplate == null) {
+            log.warn("Kafka broker not configured. Skipping event publish for APAAR ID: {}", student.getApaarId());
+            return;
+        }
+
         DuplicateAlertEvent event = new DuplicateAlertEvent(
                 UUID.randomUUID().toString(),
                 student.getApaarId(),
@@ -44,7 +48,7 @@ public class KafkaEventPublisherService {
             kafkaTemplate.send(topicName, student.getApaarId(), payload);
             log.info("Kafka Event Dispatched to [{}]: Dual enrolment for APAAR ID {}", topicName, student.getApaarId());
         } catch (Exception e) {
-            log.warn("Kafka broker offline/unreachable. Event logged locally to audit store for APAAR ID: {}", student.getApaarId());
+            log.warn("Kafka broker offline/unreachable. Event logged locally for APAAR ID: {}", student.getApaarId());
         }
     }
 }
