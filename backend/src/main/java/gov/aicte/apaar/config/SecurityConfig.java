@@ -23,7 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    @Value("${app.cors.allowed-origins:http://localhost:4200,http://localhost:4201,http://127.0.0.1:4200}")
+    @Value("${app.cors.allowed-origins:*}")
     private String allowedOrigins;
 
     @Bean
@@ -31,17 +31,34 @@ public class SecurityConfig {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
-            .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable)) // for H2 console
+            .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable))
             .authorizeHttpRequests(auth -> auth
-                // These endpoints perform their own X-Auth-Token/role checks in the controller.
-                .requestMatchers(HttpMethod.GET, "/api/verify/*", "/api/aicte/summary", "/api/aicte/public-summary",
-                        "/api/college/stats", "/api/college/students", "/api/college/alerts", "/api/aicte/colleges",
-                        "/api/aicte/duplicate-alerts", "/api/aicte/logs", "/api/aicte/export-excel").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/verify/*/status", "/api/college/bulk-upload",
-                        "/api/auth/college-login", "/api/auth/google-login", "/api/auth/admin-login",
-                        "/api/auth/register", "/api/auth/logout").permitAll()
-                .requestMatchers(HttpMethod.PATCH, "/api/aicte/colleges/*/status").permitAll()
-                .requestMatchers("/actuator/health", "/h2-console/**").permitAll()
+                // Public API endpoints — no auth required
+                .requestMatchers(HttpMethod.GET,
+                        "/api/aicte/public-summary",
+                        "/api/aicte/summary",
+                        "/api/aicte/colleges",
+                        "/api/aicte/duplicate-alerts",
+                        "/api/aicte/logs",
+                        "/api/aicte/export-excel",
+                        "/api/college/stats",
+                        "/api/college/students",
+                        "/api/college/alerts",
+                        "/api/verify/**").permitAll()
+                .requestMatchers(HttpMethod.POST,
+                        "/api/verify/*/status",
+                        "/api/college/bulk-upload",
+                        "/api/auth/college-login",
+                        "/api/auth/google-login",
+                        "/api/auth/admin-login",
+                        "/api/auth/register",
+                        "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.PATCH,
+                        "/api/aicte/colleges/*/status").permitAll()
+                // Health check and OPTIONS preflight
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/**").permitAll()
+                // Deny everything else
                 .anyRequest().denyAll()
             );
 
@@ -56,8 +73,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(allowedOrigins.split(","))
-                .stream().map(String::trim).filter(origin -> !origin.isEmpty()).toList());
+
+        // Support wildcard '*' or comma-separated origins from APP_ALLOWED_ORIGINS
+        if ("*".equals(allowedOrigins.trim())) {
+            configuration.addAllowedOriginPattern("*");
+        } else {
+            List<String> origins = List.of(allowedOrigins.split(","))
+                    .stream().map(String::trim).filter(o -> !o.isEmpty()).toList();
+            configuration.setAllowedOrigins(origins);
+        }
+
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(false);
