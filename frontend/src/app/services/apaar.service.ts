@@ -70,8 +70,9 @@ export class ApaarService {
       return 'https://apaar-backend.onrender.com/api';
     }
 
-    // Any other host (LAN IP demo, dockerised nginx, etc.) -> same-origin proxy.
-    return `${window.location.origin}/api`;
+    // Railway backend - used when deployed on Vercel or any other cloud host.
+    // Override at runtime via window.API_URL or localStorage.setItem('API_URL', '...')
+    return 'https://sih-2026-pss26263-production.up.railway.app/api';
   }
 
   constructor(private http: HttpClient, private session: SessionService) {}
