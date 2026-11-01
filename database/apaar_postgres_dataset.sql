@@ -31,6 +31,9 @@ CREATE TABLE colleges (
     code VARCHAR(50) NOT NULL UNIQUE,
     state VARCHAR(100) NOT NULL,
     city VARCHAR(100) NOT NULL,
+    email VARCHAR(120) UNIQUE,
+    password_hash VARCHAR(64),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
     approved_intake INTEGER NOT NULL DEFAULT 0,
     actual_enrolment INTEGER NOT NULL DEFAULT 0,
     verified_count INTEGER NOT NULL DEFAULT 0,
@@ -41,6 +44,15 @@ CREATE TABLE colleges (
     fn_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table: auth_sessions (Cross-replica token sessions)
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    token VARCHAR(64) PRIMARY KEY,
+    role VARCHAR(32) NOT NULL,
+    email VARCHAR(120) NOT NULL,
+    college_id VARCHAR(32),
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 -- Table: students (National Academic Student Registry with APAAR IDs)
@@ -157,12 +169,12 @@ ORDER BY total_enrolled DESC;
 -- ==============================================================================
 -- 6. SEED DATASET: AICTE INSTITUTIONS
 -- ==============================================================================
-INSERT INTO colleges (id, name, code, state, city, approved_intake, actual_enrolment, verified_count, pending_count, duplicate_count, supernumerary_quota, nri_count, fn_count) VALUES
-('COL001', 'Delhi Institute of Engineering & Technology', 'AICTE-DL-0012', 'Delhi', 'New Delhi', 1200, 1240, 980, 200, 60, 45, 24, 8),
-('COL002', 'Maharashtra National Institute of Technology', 'AICTE-MH-0845', 'Maharashtra', 'Pune', 420, 418, 380, 28, 10, 21, 12, 6),
-('COL003', 'Bangalore Technical & Science Academy', 'AICTE-KA-0491', 'Karnataka', 'Bengaluru', 300, 295, 260, 30, 5, 15, 10, 8),
-('COL004', 'Tamil Nadu Engineering & Management Campus', 'AICTE-TN-0219', 'Tamil Nadu', 'Chennai', 480, 472, 440, 24, 8, 24, 15, 10),
-('COL005', 'Uttar Pradesh Council of Technology', 'AICTE-UP-0672', 'Uttar Pradesh', 'Lucknow', 500, 515, 410, 85, 20, 25, 6, 2);
+INSERT INTO colleges (id, name, code, state, city, email, active, approved_intake, actual_enrolment, verified_count, pending_count, duplicate_count, supernumerary_quota, nri_count, fn_count) VALUES
+('COL001', 'Delhi Institute of Engineering & Technology', 'AICTE-DL-0012', 'Delhi', 'New Delhi', 'college@aicte.ac.in', TRUE, 1200, 1240, 980, 200, 60, 45, 24, 8),
+('COL002', 'Maharashtra National Institute of Technology', 'AICTE-MH-0845', 'Maharashtra', 'Pune', 'admissions@mitas-pune.edu.in', TRUE, 420, 418, 380, 28, 10, 21, 12, 6),
+('COL003', 'Bangalore Technical & Science Academy', 'AICTE-KA-0491', 'Karnataka', 'Bengaluru', 'office@btsa-bengaluru.edu.in', TRUE, 300, 295, 260, 30, 5, 15, 10, 8),
+('COL004', 'Tamil Nadu Engineering & Management Campus', 'AICTE-TN-0219', 'Tamil Nadu', 'Chennai', 'registrar@tnemc-chennai.edu.in', TRUE, 480, 472, 440, 24, 8, 24, 15, 10),
+('COL005', 'Uttar Pradesh Council of Technology', 'AICTE-UP-0672', 'Uttar Pradesh', 'Lucknow', 'admin@upct-lucknow.edu.in', TRUE, 500, 515, 410, 85, 20, 25, 6, 2);
 
 -- ==============================================================================
 -- 7. SEED DATASET: 50+ REALISTIC INDIAN STUDENT RECORDS
